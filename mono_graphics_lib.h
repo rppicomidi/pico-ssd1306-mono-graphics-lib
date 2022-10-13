@@ -222,7 +222,7 @@ public:
     void draw_character(const Mono_mono_font& font, uint8_t x, uint8_t y, char chr, Pixel_state fg_color, Pixel_state bg_color);
 
     /**
-     * @brief draw a single character to the screen based on the pixel_state.
+     * @brief draw a character string to the screen based on the pixel_state.
      * 
      * @param font the font object to use when drawing the character
      * @param x horizontal position for current screen rotation of upper left pixel of the character
