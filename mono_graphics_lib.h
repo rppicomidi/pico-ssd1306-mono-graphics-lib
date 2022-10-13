@@ -142,6 +142,7 @@ public:
      */
     inline void clear_canvas() {
         memset(canvas, 0, canvas_nbytes);
+        update_needs_render(0, 0, get_screen_width()-1, get_screen_height()-1);
     }
 
     /**
