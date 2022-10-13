@@ -113,6 +113,7 @@ void rppicomidi::Ssd1306::get_rotation_constants(uint8_t& remap_cmd, uint8_t& co
 
 void rppicomidi::Ssd1306::cmdlist_callback(void* instance, int result)
 {
+    (void)result;
     assert(instance);
     using namespace rppicomidi;
     Ssd1306* me = reinterpret_cast<Ssd1306*>(instance);
@@ -147,7 +148,7 @@ void rppicomidi::Ssd1306::data_callback(void* instance, int result)
     if (me->task_state != DATA) {
         me->task_state = ERROR; // should only call this from DATA state
     }
-    else if (result == me->display_buffer_nbytes + 1) {
+    else if (result == static_cast<int>(me->display_buffer_nbytes + 1)) {
         me->task_state = IDLE; // done and successful
         if (me->display_buffer_callback)
             me->display_buffer_callback(me->display_buffer_id);
@@ -162,7 +163,7 @@ bool rppicomidi::Ssd1306::write_command_list(const uint8_t* cmd_list, size_t cmd
 {
     bool success = true;
     uint8_t nbytes = 0;
-    for (int idx=0; success && idx < cmd_list_len; idx+=nbytes) {
+    for (int idx=0; success && idx < static_cast<int>(cmd_list_len); idx+=nbytes) {
         nbytes = cmd_list[idx++];
         #if 0
         success = port->write_command_non_blocking(cmd_list+idx, nbytes, display_num,cmd_callback, this);
@@ -195,7 +196,6 @@ bool rppicomidi::Ssd1306::write_command_list_non_blocking(const uint8_t* cmd_lis
 
 bool rppicomidi::Ssd1306::init(Display_rotation rotation_)
 {
-    bool success = true;
     rotation = rotation_;
     uint8_t remap_cmd, com_dir_cmd, addr_mode;
     get_rotation_constants(remap_cmd, com_dir_cmd, addr_mode);
