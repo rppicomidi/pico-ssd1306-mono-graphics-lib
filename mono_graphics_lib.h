@@ -242,6 +242,20 @@ public:
     }
 
     /**
+     * @brief draw a string centered on the screen (by the whole screen width)
+     *
+     * @param font the font to render the string
+     * @param str the NULL terminated C string to draw
+     * @param y vertical position for current screen rotation of upper left pixel of the character
+     */
+    void center_string(const Mono_mono_font& font, const char* str, uint8_t y)
+    {
+        auto text_len = strlen(str);
+        int x = get_screen_width()/2 - (text_len*font.width)/2;
+        draw_string(font, x, y, str, text_len, Pixel_state::PIXEL_ONE, Pixel_state::PIXEL_ZERO);
+    }
+
+    /**
      * @brief write the contents of the canvas buffer to the display memory
      * 
      */
