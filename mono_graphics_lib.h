@@ -256,6 +256,18 @@ public:
     }
 
     /**
+     * @brief center str on the screen linenum+1 if str fits in one line. Otherwise,
+     * break str into two lines and render the first line on linenum and the second
+     * line on linenum+1
+     *
+     * @param font the font to render the string
+     * @param str the string to display
+     * @param linenum the line number of the screen, from 0 (top line of screen) to
+     * display the text.
+     */
+    void center_string_on_two_lines(const Mono_mono_font& font, const char* str, uint8_t linenum);
+
+    /**
      * @brief write the contents of the canvas buffer to the display memory
      * 
      */
