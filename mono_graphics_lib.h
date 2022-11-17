@@ -308,6 +308,32 @@ public:
 
     bool is_busy() { return display->is_busy(); }
     bool can_render() {return needs_render.width !=0 && needs_render.height != 0 && !display->is_busy();}
+
+    /**
+     * @brief Get the a read-only pointer to the canvas
+     *
+     * @return const uint8_t* canvas
+     */
+    const uint8_t* get_canvas() { return canvas; }
+
+    /**
+     * @brief Get the canvas nbytes object
+     *
+     * @return size_t the number of bytes in the canvas
+     */
+    size_t get_canvas_nbytes() { return canvas_nbytes; }
+
+    /**
+     * @brief create a bmp file format image of the canvas allocated by new
+     *
+     * @return const uint8_t* a pointer to a byte array containing bmp file
+     * format image of the canvas
+     * @note After the caller of this function is done with the data, free
+     * the memory consumed by the image using delete[].
+     */
+    const uint8_t* make_bmp_file_data();
+
+    size_t get_bmp_file_data_size() { return 62 + canvas_nbytes; }
     inline const Mono_mono_font& get_font_8() {return font8; }
     inline const Mono_mono_font& get_font_12() {return font12; }
     inline const Mono_mono_font& get_font_16() {return font16; }

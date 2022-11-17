@@ -327,3 +327,69 @@ void rppicomidi::Mono_graphics::center_string_on_two_lines(const Mono_mono_font&
         }
     }
 }
+
+// See https://en.wikipedia.org/wiki/BMP_file_format
+// https://cdn.hackaday.io/files/274271173436768/Simplified%20Windows%20BMP%20Bitmap%20File%20Format%20Specification.htm
+const uint8_t* rppicomidi::Mono_graphics::make_bmp_file_data()
+{
+    uint32_t filesize = get_bmp_file_data_size();
+    uint8_t* bmp = new uint8_t[filesize];
+    memset(bmp, 0, filesize);
+    bmp[0] = 'B';
+    bmp[1] = 'M';
+    bmp[2] = filesize & 0xff;           // number of bytes in file
+    bmp[3] = (filesize >> 8) & 0xff;
+    bmp[4] = (filesize >> 16) & 0xff;
+    bmp[5] = (filesize >> 24) & 0xff;
+    // reserved 6-9
+    bmp[10] = 62; // offset where pixel data starts, LSB. Upper bytes are 11-13 are 0
+    bmp[14] = 40; // size of DIB header. Upper bytes 15-17 are 0
+    bmp[18] = get_screen_width(); // number of horizontal pixels, upper byts 19-21 are 0
+    int32_t neg_height = -get_screen_height();
+    bmp[22] = neg_height & 0xFF; // number of vertical pixels, negative so pixels stored top to bottom
+    bmp[23] = (neg_height >> 8) & 0xff;
+    bmp[24] = (neg_height >> 16) & 0xff;
+    bmp[25] = (neg_height >> 24) & 0xff;
+    bmp[26] = 1; // number color planes, upper byte 27 is 0
+    bmp[28] = 1; // bits per pixel, upper byte 29 is 0
+    bmp[30] = 0; // compression = uncompressed, upper bytes 31-33 are also 0
+    bmp[34] = canvas_nbytes & 0xff; // image size
+    bmp[35] = (canvas_nbytes >> 8) & 0xff;
+    bmp[36] = (canvas_nbytes >> 16) & 0xff;
+    bmp[37] = (canvas_nbytes >> 24) & 0xff;
+    bmp[38] = 0; // horizontal pixels per meter upper bytes 29-41 are 0 too
+    bmp[42] = 0; // vertical pixels per meter uper byts 43-45 are 0 too
+    bmp[46] = 0; // default number of colors in pallete = 2^1 = 2; upper bytes 47-49 are 0
+    bmp[50] = 0; // number of important colors used, ignored, upper bytes 51-53 are 0
+    bmp[54] = 0x00; // black, 0 pixel value in colors
+    bmp[55] = 0;
+    bmp[56] = 0;
+    bmp[57] = 0;
+    bmp[58] = 0xff; // white, 1 pixel value in colors
+    bmp[59] = 0xff;
+    bmp[60] = 0xff;
+    bmp[61] = 0x00;
+
+
+    // transform pixels in the canvas, which are stored 8 pixels per byte per column,
+    // into BMP bitmaps which are stored in groups of 8 pixel rasters across a row.
+    // Also canvas pixels are stored with an origin on the upper left. BMP pixels
+    // are stored with origin on the upper left here because image height is negative
+    // Transform the canvas into the bmp array starting at offset 64
+    uint8_t* bmp_ptr = bmp+62;
+    for (uint8_t y=0; y < get_screen_height(); y++) {
+        for (uint8_t x_byte=0; x_byte < get_screen_width()/8; x_byte++) {
+            uint8_t bits8 = 0;
+            uint8_t mask = 0x80;
+            for (uint8_t bit=0; bit < 8; bit++) {
+                uint8_t x = x_byte*8 + bit;
+                if (display->get_pixel_on_canvas(canvas, canvas_nbytes, x, y)) {
+                    bits8 |= mask;
+                }
+                mask >>= 1;
+            }
+            *bmp_ptr++ = bits8;
+        }
+    }
+    return bmp;
+}
