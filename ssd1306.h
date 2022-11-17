@@ -194,6 +194,7 @@ public:
      */
     void set_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_canvas, uint8_t x, uint8_t y, Pixel_state value);
 
+    bool get_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_canvas, uint8_t x, uint8_t y);
     /**
      * @brief Get the display rotation object value
      * 

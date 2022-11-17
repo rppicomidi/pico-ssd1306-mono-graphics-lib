@@ -337,6 +337,35 @@ void rppicomidi::Ssd1306::set_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_
     }
 }
 
+bool rppicomidi::Ssd1306::get_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_canvas, uint8_t x, uint8_t y)
+{
+    assert(canvas);
+    assert(nbytes_in_canvas);
+
+    size_t idx;
+    int bit;
+    if (is_portrait) {
+        // then bytes go left to right LSB to MSB in rows of num_pages bytes
+        assert(x < landscape_height);
+        assert(y < landscape_width);
+        int page = x/8;
+        idx = (page*landscape_width) + y;
+        assert(idx < nbytes_in_canvas);
+        bit = x % 8;
+    }
+    else {
+        // then bytes go top to bottom LSB to MSB in columns of num_pages bytes
+        assert(y < landscape_height);
+        assert(x < landscape_width);
+        int page = y/8;
+        idx = (page*landscape_width) + x;
+        assert(idx < nbytes_in_canvas);
+        bit = (y % 8);
+    }
+    uint8_t mask = 1 << bit;
+    return (mask & canvas[idx]) != 0;
+}
+
 bool rppicomidi::Ssd1306::task()
 {
     bool success = true;
