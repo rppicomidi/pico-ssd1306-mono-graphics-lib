@@ -386,11 +386,11 @@ bool rppicomidi::Ssd1306::task()
 
 bool rppicomidi::Ssd1306::render_non_blocking(uint8_t* canvas, uint8_t x0, uint8_t y0, uint8_t width, uint8_t height, void (*callback)(uint8_t id), uint8_t id)
 {
-    uint8_t first_page = is_portrait ? x0/num_pages : y0/num_pages;
+    uint8_t first_page = is_portrait ? x0/8 : y0/8; // 8 is bytes per page
     uint8_t first_col = is_portrait ? y0 : x0;
     uint8_t buf_width = is_portrait ? height : width;
-    uint8_t buf_height = is_portrait ? width : height;
-    uint8_t last_page = first_page+(buf_height-1)/num_pages;
+    uint8_t buf_height = is_portrait ? (width + (x0 % 8)) : (height + (y0 % 8));
+    uint8_t last_page = first_page+(buf_height-1)/8; // 8 is bytes per page
     int nbytes = (last_page-first_page+1) * buf_width;
     for (int page = first_page; page <= last_page; page++) {
         int canvas_offset = (page*landscape_width) + first_col;
