@@ -343,7 +343,6 @@ private:
     Mono_graphics(Mono_graphics&) = delete;
     Ssd1306* display;
     uint8_t* canvas;
-    uint8_t* render_buffer;
     size_t canvas_nbytes;
     void circle_points(int cx, int cy, int x, int y, Pixel_state bg_color, Pixel_state fill_color);
     void update_needs_render(uint8_t x_min, uint8_t y_min, uint8_t x_max, uint8_t y_max);

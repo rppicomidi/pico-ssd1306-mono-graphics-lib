@@ -44,7 +44,7 @@ rppicomidi::Mono_graphics::Mono_graphics(rppicomidi::Ssd1306* display_, Display_
     canvas_nbytes = display->get_minimum_canvas_size();
     canvas = new uint8_t[canvas_nbytes];
     assert(canvas);
-    clear_canvas();
+    memset(canvas, 0, canvas_nbytes);
     assert(display->init(initial_rotation_));
 	set_clip_rect(0, 0, display->get_screen_width(), display->get_screen_height());
 }
