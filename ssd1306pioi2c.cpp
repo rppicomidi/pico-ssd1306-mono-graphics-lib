@@ -68,13 +68,13 @@ bool rppicomidi::Ssd1306pio_i2c::write_data(const uint8_t* data, size_t nbytes, 
     uint8_t mux = mux_map == NULL ? 0:mux_map[display_num];
     bool success = false;
     if (mux == 0 || current_mux_map == mux) {
-        success = (write_blocking(addr, 0x40, data, nbytes) == nbytes+1);
+        success = (write_blocking(addr, 0x40, data, nbytes) == (int)(nbytes+1));
     }
     else {
         success = (write_blocking(mux_addr, mux, nullptr, 0) == 1);
         if (success) {
             current_mux_map = mux;
-            success = (write_blocking(addr, 0x40, data, nbytes) == nbytes+1);
+            success = (write_blocking(addr, 0x40, data, nbytes) == (int)(nbytes+1));
         }
     }
     return success;
