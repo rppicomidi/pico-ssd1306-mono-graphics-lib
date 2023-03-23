@@ -25,7 +25,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
+#ifdef NDEBUG
+// Need to do this here for release builds or no CLI commands will be added
+// All build variants except DEBUG define NDEBUG, which makes assert() macro generate
+// no code at all, which prevents some required code in here from executing
+#undef NDEBUG
+#endif
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
