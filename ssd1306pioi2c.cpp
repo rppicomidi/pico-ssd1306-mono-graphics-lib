@@ -25,6 +25,7 @@ rppicomidi::Ssd1306pio_i2c::Ssd1306pio_i2c(pio_hw_t* pio_instance_, uint state_m
     assert(mux_addr == 0 || (mux_addr != 0 && mux_map != nullptr));
     if (state_machine == 0)
         offset = pio_add_program(pio_instance_, &i2c_program);
+    pio_sm_claim(pio_instance, state_machine);
     i2c_program_init(pio_instance_, state_machine_, offset, sda_gpio, scl_gpio);
 }
 
