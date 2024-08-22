@@ -5,7 +5,10 @@ target_sources(ssd1306i2c INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/ssd1306i2c.cpp
 )
 target_include_directories(ssd1306i2c INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-
+#set PARAM_ASSERTIONS_ENABLED_I2C=0 to disable the parameter checking assertions
+target_compile_definitions(ssd1306i2c INTERFACE
+PARAM_ASSERTIONS_ENABLED_I2C=1
+)
 target_link_libraries(ssd1306i2c INTERFACE pico_stdlib hardware_i2c hardware_gpio)
 
 add_library(ssd1306pioi2c INTERFACE)

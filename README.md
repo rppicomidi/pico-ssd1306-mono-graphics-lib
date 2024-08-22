@@ -12,3 +12,9 @@ about the same time as updating only one.
 
 This code is written in C++. Some of it is licensed under a BSD 3-clause license and some under
 a MIT license. See the individual source files for more information.
+
+This version builds with Pico SDK version 2.0. If you require support for older versions of
+the Pico SDK, please use git version 3680b174e9e088eac6074573bf7aeb702568075e. For example:
+```
+git checkout 3680b174e9e088eac6074573bf7aeb702568075e
+```

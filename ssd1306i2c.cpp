@@ -175,7 +175,7 @@ int rppicomidi::Ssd1306i2c::write_blocking_internal(i2c_inst_t *i2c, uint8_t add
         // was set in i2c_init.
         do {
             if (timeout_check) {
-                timeout = timeout_check(ts);
+                timeout = timeout_check(ts, false);
                 abort |= timeout;
             }
             tight_loop_contents();
@@ -201,7 +201,7 @@ int rppicomidi::Ssd1306i2c::write_blocking_internal(i2c_inst_t *i2c, uint8_t add
                 // to take care of the abort.
                 do {
                     if (timeout_check) {
-                        timeout = timeout_check(ts);
+                        timeout = timeout_check(ts, false);
                         abort |= timeout;
                     }
                     tight_loop_contents();
