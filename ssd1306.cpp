@@ -49,7 +49,7 @@
 
 #define SET_DISP_ON 0xAF /*wake OLED from sleep*/
 #define SET_DISP_OFF 0xAE /*put OLED to sleep*/
-#define SET_COM_OUT_DIR(forward) ((forward)?0xC0:0xC8) /* forware=true scans COM from COM0-COM[N-1], false from COM[N-1]-COM[0] */
+#define SET_COM_OUT_DIR(forward) ((forward)?0xC0:0xC8) /* forward=true scans COM from COM0-COM[N-1], false from COM[N-1]-COM[0] */
 #define SET_DISP_OFFSET 0xD3 /* follow this command by one byte: the vertical shift of the display, 0-63 */
 
 #define SET_COM_PIN_CFG 0xDA /* follow this command by one byte described by one of the combinations below */
@@ -390,7 +390,7 @@ bool rppicomidi::Ssd1306::render_non_blocking(uint8_t* canvas, uint8_t x0, uint8
     uint8_t first_col = is_portrait ? y0 : x0;
     uint8_t buf_width = is_portrait ? height : width;
     uint8_t buf_height = is_portrait ? (width + (x0 % 8)) : (height + (y0 % 8));
-    uint8_t last_page = first_page+(buf_height-1)/8; // 8 is bytes per page
+    uint8_t last_page = first_page+(buf_height-1)/8; // 8 is bits per page
     int nbytes = (last_page-first_page+1) * buf_width;
     for (int page = first_page; page <= last_page; page++) {
         int canvas_offset = (page*landscape_width) + first_col;

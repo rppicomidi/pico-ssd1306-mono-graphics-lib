@@ -57,6 +57,7 @@ public:
      * @brief Construct a new i2c ssd1306 object
      * 
      * @param i2c_port the hardware handle for the I2C port in a struct
+     * @param bps the I2C clock frequency in bits per second
      * @param i2c_addr an array of I2C address for each display on the I2C bus.
      * @param sda_gpio the GPIO number of the I2C SDA signal
      * @param scl_gpio the GPIO number of the I2C SCL signal
@@ -66,7 +67,7 @@ public:
      * for each I2C addr. If the entry is 0, the port is not on a mux port but is instead
      * wired directly to the I2C port.
      */
-    Ssd1306i2c(i2c_inst_t* i2c_port, const uint8_t* i2c_addr, uint8_t sda_gpio, uint8_t scl_gpio, uint8_t ndisplays=1, uint8_t mux_addr=0, const uint8_t* mux_map=NULL);
+    Ssd1306i2c(i2c_inst_t* i2c_port, uint32_t bps, const uint8_t* i2c_addr, uint8_t sda_gpio, uint8_t scl_gpio, uint8_t ndisplays=1, uint8_t mux_addr=0, const uint8_t* mux_map=NULL);
 
     virtual ~Ssd1306i2c()=default;
     /**

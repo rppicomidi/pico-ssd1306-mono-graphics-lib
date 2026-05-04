@@ -38,15 +38,15 @@
 #include "ssd1306i2c.h"
 #include "pico/assert.h"
 #include "pico/timeout_helper.h"
-
-rppicomidi::Ssd1306i2c::Ssd1306i2c(i2c_inst_t* i2c_port_, const uint8_t* i2c_addr_, uint8_t sda_gpio_, uint8_t scl_gpio_, uint8_t ndisplays_, uint8_t mux_addr_, const uint8_t* mux_map_) :
+#include <stdio.h>
+rppicomidi::Ssd1306i2c::Ssd1306i2c(i2c_inst_t* i2c_port_, uint32_t bps, const uint8_t* i2c_addr_, uint8_t sda_gpio_, uint8_t scl_gpio_, uint8_t ndisplays_, uint8_t mux_addr_, const uint8_t* mux_map_) :
     i2c_port{i2c_port_}, i2c_addr{i2c_addr_}, ndisplays{ndisplays_}, mux_addr{mux_addr_}, mux_map{mux_map_}, current_mux_map{0},
     task_state{IDLE}, regbyte{0}, srcbytes{nullptr}, src_len{0}, src_bytes_sent{0}, done_callback{nullptr}
 {
     assert(ndisplays >0);
     assert((mux_addr == 0 && ndisplays <= 2) || (mux_addr !=0 && mux_map != NULL && ndisplays <= 18));
 
-    i2c_init(i2c_port, 400000); // todo: do we need to make the i2c bit rate an argument?
+    i2c_init(i2c_port, bps);
     gpio_set_function(sda_gpio_, GPIO_FUNC_I2C);
     gpio_set_function(scl_gpio_, GPIO_FUNC_I2C);
     gpio_pull_up(sda_gpio_);
