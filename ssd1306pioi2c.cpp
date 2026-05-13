@@ -140,7 +140,7 @@ int rppicomidi::Ssd1306pio_i2c::write_blocking(uint8_t addr, uint8_t regbyte, co
     int bytes_sent = 0;
     pio_i2c_start();
     pio_i2c_rx_enable(false);
-    pio_i2c_put16((addr << 2) | 1u);
+    pio_i2c_put_or_err((addr << 2) | 1u);
     
     while (!pio_i2c_check_error()) {
         if (!pio_sm_is_tx_fifo_full(pio_instance, state_machine)) {
