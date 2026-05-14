@@ -10,6 +10,7 @@
  *
  * Copyright (c) 2022 rppicomidi
  */
+#define PARAM_ASSERTIONS_ENABLED_I2C 1
 #include "ssd1306pioi2c.h"
 #include "assert.h"
 #include "hardware/i2c.h" // for assertion check
@@ -24,9 +25,9 @@ rppicomidi::Ssd1306pio_i2c::Ssd1306pio_i2c(pio_hw_t* pio_instance_, uint state_m
     assert(i2c_addr);
     assert(mux_addr == 0 || (mux_addr != 0 && mux_map != nullptr));
     if (state_machine == 0)
-        offset = pio_add_program(pio_instance_, &i2c_program);
+        offset = pio_add_program(pio_instance_, &i2c_irq_program);
     pio_sm_claim(pio_instance, state_machine);
-    i2c_program_init(pio_instance_, state_machine_, offset, sda_gpio, scl_gpio);
+    i2c_irq_program_init(pio_instance_, state_machine_, offset, sda_gpio, scl_gpio);
 }
 
 bool rppicomidi::Ssd1306pio_i2c::write_command(const uint8_t* command_bytes, uint8_t nbytes, uint8_t display_num)
@@ -111,24 +112,30 @@ uint8_t rppicomidi::Ssd1306pio_i2c::pio_i2c_get() {
 }
 
 void rppicomidi::Ssd1306pio_i2c::pio_i2c_start() {
+    pio_i2c_wait_idle();
     pio_i2c_put_or_err(1u << PIO_I2C_ICOUNT_LSB); // Escape code for 2 instruction sequence
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC1_SD0]);    // We are already in idle state, just pull SDA low
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC0_SD0]);    // Also pull clock low so we can present data
+    pio_instance->irq = 1u << state_machine; // clear FIFO Empty interrupt
 }
 
 void rppicomidi::Ssd1306pio_i2c::pio_i2c_stop() {
+    pio_i2c_wait_idle();
     pio_i2c_put_or_err(2u << PIO_I2C_ICOUNT_LSB);
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC0_SD0]);    // SDA is unknown; pull it down
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC1_SD0]);    // Release clock
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC1_SD1]);    // Release SDA to return to idle state
+    pio_instance->irq = 1u << state_machine; // clear FIFO Empty interrupt
 };
 
 void rppicomidi::Ssd1306pio_i2c::pio_i2c_repstart() {
+    pio_i2c_wait_idle();
     pio_i2c_put_or_err(3u << PIO_I2C_ICOUNT_LSB);
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC0_SD1]);
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC1_SD1]);
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC1_SD0]);
     pio_i2c_put_or_err(set_scl_sda_program_instructions[I2C_SC0_SD0]);
+    pio_instance->irq = 1u << state_machine; // clear FIFO Empty interrupt
 }
 
 int rppicomidi::Ssd1306pio_i2c::write_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len)
@@ -139,7 +146,7 @@ int rppicomidi::Ssd1306pio_i2c::write_blocking(uint8_t addr, uint8_t regbyte, co
 
     int bytes_sent = 0;
     pio_i2c_start();
-    pio_i2c_rx_enable(false);
+    //pio_i2c_rx_enable(false);
     pio_i2c_put_or_err((addr << 2) | 1u);
     
     while (!pio_i2c_check_error()) {
@@ -149,11 +156,15 @@ int rppicomidi::Ssd1306pio_i2c::write_blocking(uint8_t addr, uint8_t regbyte, co
             break;
         }
     }
+    pio_instance->irq = 1u << state_machine; // clear FIFO Empty interrupt
     while (len && !pio_i2c_check_error()) {
         if (!pio_sm_is_tx_fifo_full(pio_instance, state_machine)) {
             --len;
             ++bytes_sent;
             pio_i2c_put_or_err((*src++ << PIO_I2C_DATA_LSB) | ((len == 0) << PIO_I2C_FINAL_LSB) | 1u);
+        }
+        else {
+            pio_instance->irq = 1u << state_machine; // clear FIFO Empty interrupt
         }
     }
     pio_i2c_stop();
@@ -167,20 +178,26 @@ int rppicomidi::Ssd1306pio_i2c::write_blocking(uint8_t addr, uint8_t regbyte, co
 }
 
 bool rppicomidi::Ssd1306pio_i2c::pio_i2c_check_error() {
-    return !!(pio_instance->irq & (1u << state_machine));
+    return (pio_instance->irq & (0x10 << state_machine)) != 0;
 }
 
 void rppicomidi::Ssd1306pio_i2c::pio_i2c_resume_after_error() {
     pio_sm_drain_tx_fifo(pio_instance, state_machine);
     pio_sm_exec(pio_instance, state_machine, (pio_instance->sm[state_machine].execctrl & PIO_SM0_EXECCTRL_WRAP_BOTTOM_BITS) >> PIO_SM0_EXECCTRL_WRAP_BOTTOM_LSB);
-    pio_instance->irq = 1u << state_machine;
+    pio_instance->irq = (0x10u << state_machine);
 }
 
+#if 0
 void rppicomidi::Ssd1306pio_i2c::pio_i2c_rx_enable(bool en) {
     if (en)
         hw_set_bits(&pio_instance->sm[state_machine].shiftctrl, PIO_SM0_SHIFTCTRL_AUTOPUSH_BITS);
     else
         hw_clear_bits(&pio_instance->sm[state_machine].shiftctrl, PIO_SM0_SHIFTCTRL_AUTOPUSH_BITS);
+}
+#endif
+void rppicomidi::Ssd1306pio_i2c::pio_i2c_rx_enable(bool )
+{
+    assert(false); // rx is never used
 }
 
 bool rppicomidi::Ssd1306pio_i2c::write_non_blocking(uint8_t addr, uint8_t regbyte_, const uint8_t *src_, int len_, 

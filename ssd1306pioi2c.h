@@ -29,7 +29,7 @@
  */
 #pragma once
 #include <cstdint>
-#include "i2c.pio.h"
+#include "i2c-irq.pio.h"
 #include "hardware/pio.h"
 #include "ssd1306hw.h"
 namespace rppicomidi {
@@ -173,10 +173,10 @@ private:
     }
 
     void pio_i2c_wait_idle() {
-        // Finished when TX runs dry or SM hits an IRQ
-        pio_instance->fdebug = 1u << (PIO_FDEBUG_TXSTALL_LSB + state_machine);
-        while (!(pio_instance->fdebug & 1u << (PIO_FDEBUG_TXSTALL_LSB + state_machine) || pio_i2c_check_error()))
+        //while (!(pio_instance->fdebug & 1u << (PIO_FDEBUG_TXSTALL_LSB + state_machine) || pio_i2c_check_error()))
+        while ((pio_instance->irq & (1<< state_machine)) == 0) {
             tight_loop_contents();
+        }
     }
 };
 }
