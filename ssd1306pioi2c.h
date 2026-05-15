@@ -133,6 +133,12 @@ public:
      * @return true if there is a data or display command transfer in progress
      */
     inline bool is_busy() final { return xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR; }
+
+    /**
+     * @brief Attempt to recover from an error
+     *
+     */
+    inline void resume_after_error() { pio_i2c_resume_after_error(); }
 protected:
     Ssd1306pio_i2c() = delete;
     Ssd1306pio_i2c(Ssd1306pio_i2c&) = delete;

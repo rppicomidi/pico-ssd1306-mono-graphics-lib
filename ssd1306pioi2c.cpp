@@ -147,6 +147,7 @@ void rppicomidi::Ssd1306pio_i2c::pio_i2c_resume_after_error() {
     pio_sm_drain_tx_fifo(pio_instance, state_machine);
     pio_sm_exec(pio_instance, state_machine, (pio_instance->sm[state_machine].execctrl & PIO_SM0_EXECCTRL_WRAP_BOTTOM_BITS) >> PIO_SM0_EXECCTRL_WRAP_BOTTOM_LSB);
     pio_instance->irq = (0x10u << state_machine);
+    xfer.state = Xfer::IDLE;
 }
 
 void rppicomidi::Ssd1306pio_i2c::pio_i2c_rx_enable(bool )
