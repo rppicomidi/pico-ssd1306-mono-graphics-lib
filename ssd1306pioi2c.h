@@ -103,9 +103,9 @@ public:
 
     bool task() final;
 
-    inline bool is_error_state() final {return task_state == ERROR;}
-    inline bool is_busy() final { return task_state != IDLE && task_state != ERROR; }
-private:
+    inline bool is_error_state() final {return xfer.state == Xfer::ERROR;}
+    inline bool is_busy() final { return xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR; }
+protected:
     Ssd1306pio_i2c() = delete;
     Ssd1306pio_i2c(Ssd1306pio_i2c&) = delete;
 
@@ -117,13 +117,13 @@ private:
     uint8_t mux_addr;
     uint8_t* mux_map;
     uint8_t current_mux_map;
-    enum task_state_e {IDLE, REGBYTE, SRCBYTE, ERROR} task_state;
-    uint8_t regbyte;
-    const uint8_t* srcbytes;
-    int src_len; // number of source bytes remaining to send
-    int src_bytes_sent;
-    void (*done_callback)(void* instance, int result);
-    void* cb_instance;
+    //enum task_state_e {IDLE, REGBYTE, SRCBYTE, ERROR} task_state;
+    //uint8_t regbyte;
+    //const uint8_t* srcbytes;
+    //int src_len; // number of source bytes remaining to send
+    //int src_bytes_sent;
+    //void (*done_callback)(void* instance, int result);
+    //void* cb_instance;
 
     /**
      * @brief test if the address is reserved (copied from pico-sdk)
@@ -141,8 +141,8 @@ private:
      */
     int write_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len);
 
-    void send_stop_from_task();
-    bool send_byte_from_task(uint16_t data);
+    //void send_stop_from_task();
+    //bool send_byte_from_task(uint16_t data);
     bool write_non_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, int len, void (*done_callback)(void* instance, int result), void* instance_);
     // ----------------------------------------------------------------------------
     // Low-level functions and data copied from the PIO I2C example
@@ -173,10 +173,35 @@ private:
     }
 
     void pio_i2c_wait_idle() {
-        //while (!(pio_instance->fdebug & 1u << (PIO_FDEBUG_TXSTALL_LSB + state_machine) || pio_i2c_check_error()))
-        while ((pio_instance->irq & (1<< state_machine)) == 0) {
+        while (!(pio_instance->fdebug & 1u << (PIO_FDEBUG_TXSTALL_LSB + state_machine) || pio_i2c_check_error())) {
             tight_loop_contents();
         }
     }
+    void pio_sm_irq_handler();
+
+    // An I2C data byte in the TX FIFO upper 6 bits are 0;
+    // bit 9 is set if it is the last word sent; bits 8:1 are data;
+    // bit 0 is always 1 for reading the stop bit state
+    inline void write16data(uint16_t data, uint16_t is_final) {
+    // some versions of GCC dislike this
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+        *(io_rw_16 *)&pio_instance->txf[state_machine] = (data<<PIO_I2C_DATA_LSB) | (is_final << PIO_I2C_FINAL_LSB) |  1;
+#pragma GCC diagnostic pop
+    }
+    struct Xfer {
+        Xfer() : buffer{nullptr}, done_callback{nullptr}, cb_instance{nullptr}, nbytes{0}, bytes_xferd{0}, state{IDLE}, addr{0}, regbyte{0} {}
+        const uint8_t* buffer;
+        void (*done_callback)(void* instance, int result);
+        void* cb_instance;
+        uint16_t nbytes;
+        uint16_t bytes_xferd;
+        enum Xfer_state_e {IDLE, DATA, STOP, ERROR} state;
+        uint8_t addr;
+        uint8_t regbyte;    // The register byte; separate from the data buffer
+    } xfer;
+    static void pio_i2c_irq_handler();
+    static uint32_t pio_i2c_irq_mask;   // bit i is set if state machine i is running PIO I2C code
+    static Ssd1306pio_i2c* i2c_port[4]; // i2c_port[i] points to the Ssd1306pio_i2c object that the IRQ handler uses 
 };
 }

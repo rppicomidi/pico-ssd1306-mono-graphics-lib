@@ -71,7 +71,7 @@ public entry_point:
 .wrap_target
     mov x, status              ; Test if TX FIFO level is less than 1 (i.e., empty)
     jmp !x do_pull             ; It will be all ones if empty, 0 otherwise, so !x is not empty
-    irq set 0 rel              ; Trigger the SM IRQ but do not stall the SM. It will stall on empty TX FIFO
+    irq wait 0 rel             ; Trigger the SM IRQ and wait until the IRQ handler clears the IRQ bit
 do_pull:
     out x, 6                   ; Unpack Instr count
     out y, 1                   ; Unpack the NAK ignore bit
