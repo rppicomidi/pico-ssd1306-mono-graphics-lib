@@ -99,7 +99,7 @@ public:
     Mono_graphics oled_screen; // the screen object
 
     QueueHandle_t display_queue;
-    static const uint32_t display_queue_item_size{8};
+    static const uint32_t display_queue_item_size{5};
     enum display_queue_commands{IDLE, ERROR, NEW_TIME};
     static void timer_task(void *param);
     static void display_task(void *param);
