@@ -213,7 +213,7 @@ bool rppicomidi::Ssd1306pio_i2c::task()
 void rppicomidi::Ssd1306pio_i2c::pio_sm_irq_handler()
 {
     // Catch the error interrupt or an erroneous transfer start
-    if ((pio_instance->irq & (4 << state_machine)) != 0 || (xfer.state == Xfer::IDLE && (xfer.nbytes >0 && xfer.bytes_xferd != 0))) {
+    if ((pio_instance->irq & (0x10 << state_machine)) != 0 || (xfer.state == Xfer::IDLE && (xfer.nbytes >0 && xfer.bytes_xferd != 0))) {
         xfer.state = Xfer::ERROR;
         // prevent the interrupt from firing again; error must be cleared externally
         hw_clear_bits(&pio_instance->inte0, 1<<(state_machine+PIO_IRQ0_INTE_SM0_LSB));
