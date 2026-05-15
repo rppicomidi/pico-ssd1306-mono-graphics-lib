@@ -117,13 +117,6 @@ protected:
     uint8_t mux_addr;
     uint8_t* mux_map;
     uint8_t current_mux_map;
-    //enum task_state_e {IDLE, REGBYTE, SRCBYTE, ERROR} task_state;
-    //uint8_t regbyte;
-    //const uint8_t* srcbytes;
-    //int src_len; // number of source bytes remaining to send
-    //int src_bytes_sent;
-    //void (*done_callback)(void* instance, int result);
-    //void* cb_instance;
 
     /**
      * @brief test if the address is reserved (copied from pico-sdk)

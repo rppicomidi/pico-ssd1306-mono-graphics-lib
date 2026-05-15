@@ -24,8 +24,8 @@ target_include_directories(1display-i2c-example PRIVATE
 target_compile_definitions(1display-i2c-example PRIVATE
     PICO_DEFAULT_UART_TX_PIN=16
     PICO_DEFAULT_UART_RX_PIN=17
-    OLED_SDA_GPIO=2
-    OLED_SCL_GPIO=3
+    OLED_SDA_GPIO=14
+    OLED_SCL_GPIO=15
     PARAM_ASSERTIONS_ENABLED_I2C=1
 )
 target_link_options(1display-i2c-example PRIVATE -Xlinker --print-memory-usage)
