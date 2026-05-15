@@ -1,26 +1,17 @@
 cmake_minimum_required(VERSION 3.13)
 
+if(NOT DEFINED PARAM_ASSERTIONS_ENABLED_I2C)
+    set(PARAM_ASSERTIONS_ENABLED_I2C 1)
+endif()
 add_library(ssd1306i2c INTERFACE)
 target_sources(ssd1306i2c INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/ssd1306i2c.cpp
 )
 target_include_directories(ssd1306i2c INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-#set PARAM_ASSERTIONS_ENABLED_I2C=0 to disable the parameter checking assertions
 target_compile_definitions(ssd1306i2c INTERFACE
-PARAM_ASSERTIONS_ENABLED_I2C=1
+    PARAM_ASSERTIONS_ENABLED_I2C=${PARAM_ASSERTIONS_ENABLED_I2C}
 )
 target_link_libraries(ssd1306i2c INTERFACE pico_stdlib hardware_i2c hardware_gpio)
-
-add_library(ssd1306i2c-freertos INTERFACE)
-target_sources(ssd1306i2c-freertos INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/ssd1306i2c-freertos.cpp
-)
-target_include_directories(ssd1306i2c-freertos INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-#set PARAM_ASSERTIONS_ENABLED_I2C=0 to disable the parameter checking assertions
-target_compile_definitions(ssd1306i2c-freertos INTERFACE
-PARAM_ASSERTIONS_ENABLED_I2C=1
-)
-target_link_libraries(ssd1306i2c-freertos INTERFACE pico_stdlib hardware_i2c hardware_gpio)
 
 add_library(ssd1306pioi2c INTERFACE)
 target_sources(ssd1306pioi2c INTERFACE
@@ -30,6 +21,9 @@ target_sources(ssd1306pioi2c INTERFACE
 pico_generate_pio_header(ssd1306pioi2c ${CMAKE_CURRENT_LIST_DIR}/i2c-irq.pio)
 target_include_directories(ssd1306pioi2c INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
+)
+target_compile_definitions(ssd1306i2c INTERFACE
+    PARAM_ASSERTIONS_ENABLED_I2C=${PARAM_ASSERTIONS_ENABLED_I2C}
 )
 target_link_libraries(ssd1306pioi2c INTERFACE pico_stdlib hardware_pio hardware_i2c hardware_gpio)
 

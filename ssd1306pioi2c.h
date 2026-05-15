@@ -71,7 +71,8 @@ public:
      * @param display_num which of the displays on the same I2C port to update.
      * @param callback points to a function that gets called when the command write completes.
      * The result parameter of the callback is the number of bytes written (may be 0). Success
-     * is parameter==nbytes+1
+     * is parameter==nbytes+1. A value of -1 indicates that address write failed. A value of -2
+     * indicates an attempt to start a new write when another write was in progress.
      * @return true if the write started with no error
      * @return false if the write start failed
      * @todo make this method support I2C mux chips
@@ -81,15 +82,31 @@ public:
     /**
      * @brief Write display memory bytes to the SSD1306
      * 
-     * @param data a pointer to a uint8_t array containing the data
+     * @param data a pointer to a uint8_t array containing the display memory data
      * @param nbytes the number of bytes in the data array.
      * @return true if the write was successful
      * @return false if the write failed
      */
     bool write_data(const uint8_t* data, size_t nbytes, uint8_t display_num) final;
 
+    /**
+     * @brief Write display memory bytes to the SSD1306 but do
+     * not wait for the I2C transfers to complete.
+     *
+     * @param data a pointer to a uint8_t array containing the display memory data
+     * @param nbytes the number of bytes in the data array.
+     * @param display_num which of the displays on the same I2C port to update.
+     * @param callback points to a function that gets called when the command write completes.
+     * The result parameter of the callback is the number of bytes written (may be 0). Success
+     * is parameter==nbytes+1. A value of -1 indicates that address write failed. A value of -2
+     * indicates an attempt to start a new write when another write was in progress.
+     * @return true if the write started with no error
+     * @return false if the write start failed
+     * @todo make this method support I2C mux chips
+     */
     bool write_data_non_blocking(const uint8_t* data, size_t nbytes, uint8_t display_num,
             void (*callback)(void* instance, int result), void* instance);
+
     /**
      * @brief Get the PIO program offset
      *
@@ -103,7 +120,18 @@ public:
 
     bool task() final;
 
+    /**
+     * @brief
+     *
+     * @return true if the PIO state machine is halted due to an error
+     */
     inline bool is_error_state() final {return xfer.state == Xfer::ERROR;}
+
+    /**
+     * @brief
+     *
+     * @return true if there is a data or display command transfer in progress
+     */
     inline bool is_busy() final { return xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR; }
 protected:
     Ssd1306pio_i2c() = delete;
@@ -149,15 +177,10 @@ protected:
     void pio_i2c_stop();
     void pio_i2c_repstart();
 
-    bool pio_i2c_check_error();
     void pio_i2c_resume_after_error();
 
-    // If I2C is ok, block and push data. Otherwise fall straight through.
-    void pio_i2c_put_or_err(uint16_t data);
-    uint8_t pio_i2c_get();
+    // Write a 16-bit data word to the state machine TX FIFO
     inline void pio_i2c_put16(uint16_t data) {
-        while (pio_sm_is_tx_fifo_full(pio_instance, state_machine))
-            ;
         // some versions of GCC dislike this
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wstrict-aliasing"
@@ -165,23 +188,15 @@ protected:
     #pragma GCC diagnostic pop
     }
 
-    void pio_i2c_wait_idle() {
-        while (!(pio_instance->fdebug & 1u << (PIO_FDEBUG_TXSTALL_LSB + state_machine) || pio_i2c_check_error())) {
-            tight_loop_contents();
-        }
-    }
     void pio_sm_irq_handler();
 
     // An I2C data byte in the TX FIFO upper 6 bits are 0;
     // bit 9 is set if it is the last word sent; bits 8:1 are data;
     // bit 0 is always 1 for reading the stop bit state
     inline void write16data(uint16_t data, uint16_t is_final) {
-    // some versions of GCC dislike this
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-        *(io_rw_16 *)&pio_instance->txf[state_machine] = (data<<PIO_I2C_DATA_LSB) | (is_final << PIO_I2C_FINAL_LSB) |  1;
-#pragma GCC diagnostic pop
+        pio_i2c_put16((data<<PIO_I2C_DATA_LSB) | (is_final << PIO_I2C_FINAL_LSB) | 1);
     }
+
     struct Xfer {
         Xfer() : buffer{nullptr}, done_callback{nullptr}, cb_instance{nullptr}, nbytes{0}, bytes_xferd{0}, state{IDLE}, addr{0}, regbyte{0} {}
         const uint8_t* buffer;
