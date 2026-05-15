@@ -270,7 +270,8 @@ public:
      * @param result is the number of bytes sent for the last block of
      * display memory data.
      */
-    static void data_callback(void* instance, int result);
+    virtual void data_callback(int result);
+    static void static_data_callback(void* instance, int result);
 
     /**
      * @brief Copy the portion of the canvas required to update the display

@@ -132,7 +132,7 @@ void rppicomidi::Ssd1306::cmdlist_callback(void* instance, int result)
     else {
         // command list is done. Figure out what to do next
         if (me->task_state == me->DATA) {
-            me->port->write_data_non_blocking(me->display_buffer, me->display_buffer_nbytes, me->display_num, rppicomidi::Ssd1306::data_callback, me);
+            me->port->write_data_non_blocking(me->display_buffer, me->display_buffer_nbytes, me->display_num, rppicomidi::Ssd1306::static_data_callback, me);
         }
         else if (me->task_state == me->CMD_LIST) {
             me->task_state = IDLE;
@@ -140,25 +140,29 @@ void rppicomidi::Ssd1306::cmdlist_callback(void* instance, int result)
     }
 }
 
-void rppicomidi::Ssd1306::data_callback(void* instance, int result)
+void rppicomidi::Ssd1306::static_data_callback(void* instance, int result)
 {
     assert(instance);
     using namespace rppicomidi;
     Ssd1306* me = reinterpret_cast<Ssd1306*>(instance);
-    if (me->task_state != DATA) {
-        me->task_state = ERROR; // should only call this from DATA state
+    me->data_callback(result);
+}
+
+void rppicomidi::Ssd1306::data_callback(int result)
+{
+    if (task_state != DATA) {
+        task_state = ERROR; // should only call this from DATA state
     }
-    else if (result == static_cast<int>(me->display_buffer_nbytes + 1)) {
-        me->task_state = IDLE; // done and successful
-        if (me->display_buffer_callback)
-            me->display_buffer_callback(me->display_buffer_id);
+    else if (result == static_cast<int>(display_buffer_nbytes + 1)) {
+        task_state = IDLE; // done and successful
+        if (display_buffer_callback)
+            display_buffer_callback(display_buffer_id);
     }
     else {
-        me->task_state = ERROR; // done and not successful
+        task_state = ERROR; // done and not successful
     }
-
-
 }
+
 bool rppicomidi::Ssd1306::write_command_list(const uint8_t* cmd_list, size_t cmd_list_len)
 {
     bool success = true;
