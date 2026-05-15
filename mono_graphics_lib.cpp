@@ -25,12 +25,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifdef NDEBUG
-// Need to do this here for release builds or code wrapped in assert() will be added.
-// All build variants except DEBUG define NDEBUG, which makes assert() macro generate
-// no code at all, which prevents some required code in here from executing
-#undef NDEBUG
-#endif
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -50,8 +44,10 @@ rppicomidi::Mono_graphics::Mono_graphics(rppicomidi::Ssd1306* display_, Display_
     canvas = new uint8_t[canvas_nbytes];
     assert(canvas);
     memset(canvas, 0, canvas_nbytes);
-    assert(display->init(initial_rotation_));
+    bool result = display->init(initial_rotation_);
+    assert(result);
 	set_clip_rect(0, 0, display->get_screen_width(), display->get_screen_height());
+    (void)result;
 }
 
 rppicomidi::Mono_graphics::~Mono_graphics()
