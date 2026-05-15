@@ -227,6 +227,8 @@ bool rppicomidi::Ssd1306pio_i2c::write_non_blocking(uint8_t addr, uint8_t regbyt
     xfer.bytes_xferd = 0;
     xfer.buffer = src;
     xfer.nbytes = len;
+    xfer.done_callback = done_callback;
+    xfer.cb_instance = instance;
 
     hw_set_bits(&pio_instance->inte0, 1<<(state_machine+PIO_IRQ0_INTE_SM0_LSB));
 #if 0

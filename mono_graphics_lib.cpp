@@ -278,10 +278,12 @@ void rppicomidi::Mono_graphics::update_needs_render(uint8_t x_min, uint8_t y_min
 
 void rppicomidi::Mono_graphics::render_non_blocking(void (*callback)(uint8_t id), uint8_t id)
 {
-    assert(display->render_non_blocking(canvas, needs_render.x_upper_left, needs_render.y_upper_left,
-        needs_render.width,needs_render.height, callback, id));
+    bool result = display->render_non_blocking(canvas, needs_render.x_upper_left, needs_render.y_upper_left,
+        needs_render.width,needs_render.height, callback, id);
+    assert(result);
     needs_render.height = 0;
     needs_render.width = 0;
+    (void)result;
 }
 
 void rppicomidi::Mono_graphics::center_string_on_two_lines(const Mono_mono_font& font, const char* str, uint8_t linenum)
