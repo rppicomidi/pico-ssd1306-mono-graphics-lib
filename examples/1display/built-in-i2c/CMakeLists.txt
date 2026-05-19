@@ -24,5 +24,9 @@ target_include_directories(1display-i2c-example PRIVATE
 target_link_options(1display-i2c-example PRIVATE -Xlinker --print-memory-usage)
 target_compile_options(1display-i2c-example PRIVATE -Wall -Wextra)
 target_link_libraries(1display-i2c-example ssd1306i2c ssd1306 mono_graphics_lib)
+target_compile_definitions(1display-i2c-example PRIVATE
+    PICO_DEFAULT_UART_TX_PIN=16
+    PICO_DEFAULT_UART_RX_PIN=17
+)
 pico_add_extra_outputs(1display-i2c-example)
 
