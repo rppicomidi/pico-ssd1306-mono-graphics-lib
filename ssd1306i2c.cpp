@@ -39,9 +39,13 @@
 #include "pico/assert.h"
 #include "pico/timeout_helper.h"
 #include <stdio.h>
+
+rppicomidi::Ssd1306i2c* rppicomidi::Ssd1306i2c::i2c0_irq_context = nullptr;
+rppicomidi::Ssd1306i2c* rppicomidi::Ssd1306i2c::i2c1_irq_context = nullptr;
+
 rppicomidi::Ssd1306i2c::Ssd1306i2c(i2c_inst_t* i2c_port_, uint32_t bps, const uint8_t* i2c_addr_, uint8_t sda_gpio_, uint8_t scl_gpio_, uint8_t ndisplays_, uint8_t mux_addr_, const uint8_t* mux_map_) :
     i2c_port{i2c_port_}, i2c_addr{i2c_addr_}, ndisplays{ndisplays_}, mux_addr{mux_addr_}, mux_map{mux_map_}, current_mux_map{0},
-    task_state{IDLE}, regbyte{0}, srcbytes{nullptr}, src_len{0}, src_bytes_sent{0}, done_callback{nullptr}
+    regbyte{0}, srcbytes{nullptr}, src_len{0}, src_bytes_sent{0}, done_callback{nullptr}
 {
     assert(ndisplays >0);
     assert((mux_addr == 0 && ndisplays <= 2) || (mux_addr !=0 && mux_map != NULL && ndisplays <= 18));
@@ -51,6 +55,19 @@ rppicomidi::Ssd1306i2c::Ssd1306i2c(i2c_inst_t* i2c_port_, uint32_t bps, const ui
     gpio_set_function(scl_gpio_, GPIO_FUNC_I2C);
     gpio_pull_up(sda_gpio_);
     gpio_pull_up(scl_gpio_);
+    i2c_port->hw->intr_mask = 0;
+    //hw_clear_bits(&i2c_port->hw->con, I2C_IC_CON_TX_EMPTY_CTRL_BITS);
+    if (i2c_port == i2c0) {
+        i2c0_irq_context = this;
+        irq_add_shared_handler(I2C0_IRQ, i2c0_irq_handler, PICO_DEFAULT_IRQ_PRIORITY);
+        irq_set_enabled(I2C0_IRQ, true);
+    }
+    else {
+        assert(i2c_port == i2c1);
+        i2c1_irq_context = this;
+        irq_add_shared_handler(I2C1_IRQ, i2c1_irq_handler, PICO_DEFAULT_IRQ_PRIORITY);
+        irq_set_enabled(I2C1_IRQ, true);
+    }
     //bi_decl(bi_2pins_with_func(sda_gpio_, scl_gpio_, GPIO_FUNC_I2C));
 }
 
@@ -60,18 +77,9 @@ bool rppicomidi::Ssd1306i2c::write_command(const uint8_t* command_bytes, uint8_t
     assert(nbytes);
     assert(display_num < ndisplays);
     uint8_t addr = i2c_addr[display_num];
-    uint8_t mux = mux_map == NULL ? 0:mux_map[display_num];
+    xfer.display_num = display_num;
     bool success = false;
-    if (mux == 0 || current_mux_map == mux) {
-        success = (write_blocking(i2c_port, addr, 0x00, command_bytes, nbytes, false) == nbytes+1);
-    }
-    else {
-        success = (::i2c_write_blocking(i2c_port, mux_addr, &mux, 1, false) == 1);
-        if (success) {
-            current_mux_map = mux;
-            success = (write_blocking(i2c_port, addr, 0x00, command_bytes, nbytes, false) == nbytes+1);
-        }
-    }
+    success = (write_blocking(addr, 0x00, command_bytes, nbytes) == nbytes+1);
     return success;
 }
 
@@ -81,6 +89,7 @@ bool rppicomidi::Ssd1306i2c::write_command_non_blocking(const uint8_t* command_b
     assert(command_bytes);
     assert(nbytes);
     assert(display_num < ndisplays);
+    xfer.display_num = display_num;
     uint8_t addr = i2c_addr[display_num];
     return write_non_blocking(addr, 0x00, command_bytes, nbytes, callback, instance_);
 }
@@ -90,19 +99,10 @@ bool rppicomidi::Ssd1306i2c::write_data(const uint8_t* data, size_t nbytes, uint
     assert(data);
     assert(nbytes);
     assert(display_num < ndisplays);
+    xfer.display_num = display_num;
     uint8_t addr = i2c_addr[display_num];
-    uint8_t mux = mux_map == NULL ? 0:mux_map[display_num];
     bool success = false;
-    if (mux == 0 || current_mux_map == mux) {
-        success = (write_blocking(i2c_port, addr, 0x40, data, nbytes, false) == static_cast<int>(nbytes+1));
-    }
-    else {
-        success = (::i2c_write_blocking(i2c_port, mux_addr, &mux, 1, false) == 1);
-        if (success) {
-            current_mux_map = mux;
-            success = (write_blocking(i2c_port, addr, 0x40, data, nbytes, false) == static_cast<int>(nbytes+1));
-        }
-    }
+    success = write_blocking(addr, 0x40, data, nbytes) == static_cast<int>(nbytes+1);
     return success;
 }
 
@@ -112,169 +112,68 @@ bool rppicomidi::Ssd1306i2c::write_data_non_blocking(const uint8_t* data, size_t
     assert(data);
     assert(nbytes);
     assert(display_num < ndisplays);
+    xfer.display_num = display_num;
+
     uint8_t addr = i2c_addr[display_num];
     return write_non_blocking(addr, 0x40, data, nbytes, callback, instance_);
 }
 
-// The following method slightly modified from the pico-sdk's i2c_write_blocking_internal function
-int rppicomidi::Ssd1306i2c::write_blocking_internal(i2c_inst_t *i2c, uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len, bool nostop,
-                                       check_timeout_fn timeout_check, struct timeout_state *ts) {
+int rppicomidi::Ssd1306i2c::write_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len)
+{
     invalid_params_if(I2C, addr >= 0x80); // 7-bit addresses
     invalid_params_if(I2C, i2c_reserved_addr(addr));
-    // Synopsys hw accepts start/stop flags alongside data items in the same
-    // FIFO word, so no 0 byte transfers.
-    invalid_params_if(I2C, len == 0);
-    invalid_params_if(I2C, ((int)len) < 0);
+    assert(len == 0 || (len > 0 && src != nullptr));
 
-    i2c->hw->enable = 0;
-    i2c->hw->tar = addr;
-    i2c->hw->enable = 1;
+    while(is_busy()) {
 
-    bool abort = false;
-    bool timeout = false;
-
-    uint32_t abort_reason = 0;
-    int byte_ctr;
-
-    int ilen = (int)len;
-    bool first = true;
-    for (byte_ctr = 0; byte_ctr <= ilen; ++byte_ctr) {
-        /******************************************************
-         * The pico-sdk code loop starts like this:
-         * for (byte_ctr = 0; byte_ctr = ilen; ++byte_ctr) {
-         * bool first = byte_ctr == 0;
-         * bool last = byte_ctr == ilen - 1;
-         *
-         *  i2c->hw->data_cmd =
-         *          bool_to_bit(first && i2c->restart_on_next) << I2C_IC_DATA_CMD_RESTART_LSB |
-         *          bool_to_bit(last && !nostop) << I2C_IC_DATA_CMD_STOP_LSB |
-         *          *src++;
-         * 
-         * We have another byte, so the loop doesn't end until byte_ctr == ilen+1,
-         * so now the stop condition is byte_ctr <=ilen
-         * 
-         * Now we know the first byte is always regbyte, and because 0-length
-         * data array is not allowed, it is never the last byte.
-         *******************************************************/
-        bool last = byte_ctr == ilen;
-        if (first) {
-            i2c->hw->data_cmd =
-                    bool_to_bit(i2c->restart_on_next) << I2C_IC_DATA_CMD_RESTART_LSB |
-                    regbyte;
-            first = false;
-        }
-        else {
-            i2c->hw->data_cmd =
-                    bool_to_bit(last && !nostop) << I2C_IC_DATA_CMD_STOP_LSB |
-                    *src++;
-        }
-
-        // Wait until the transmission of the address/data from the internal
-        // shift register has completed. For this to function correctly, the
-        // TX_EMPTY_CTRL flag in IC_CON must be set. The TX_EMPTY_CTRL flag
-        // was set in i2c_init.
-        do {
-            if (timeout_check) {
-                timeout = timeout_check(ts, false);
-                abort |= timeout;
-            }
-            tight_loop_contents();
-        } while (!timeout && !(i2c->hw->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_EMPTY_BITS));
-
-        // If there was a timeout, don't attempt to do anything else.
-        if (!timeout) {
-            abort_reason = i2c->hw->tx_abrt_source;
-            if (abort_reason) {
-                // Note clearing the abort flag also clears the reason, and
-                // this instance of flag is clear-on-read! Note also the
-                // IC_CLR_TX_ABRT register always reads as 0.
-                i2c->hw->clr_tx_abrt;
-                abort = true;
-            }
-
-            if (abort || (last && !nostop)) {
-                // If the transaction was aborted or if it completed
-                // successfully wait until the STOP condition has occured.
-
-                // TODO Could there be an abort while waiting for the STOP
-                // condition here? If so, additional code would be needed here
-                // to take care of the abort.
-                do {
-                    if (timeout_check) {
-                        timeout = timeout_check(ts, false);
-                        abort |= timeout;
-                    }
-                    tight_loop_contents();
-                } while (!timeout && !(i2c->hw->raw_intr_stat & I2C_IC_RAW_INTR_STAT_STOP_DET_BITS));
-
-                // If there was a timeout, don't attempt to do anything else.
-                if (!timeout) {
-                    i2c->hw->clr_stop_det;
-                }
-            }
-        }
-
-        // Note the hardware issues a STOP automatically on an abort condition.
-        // Note also the hardware clears RX FIFO as well as TX on abort,
-        // because we set hwparam IC_AVOID_RX_FIFO_FLUSH_ON_TX_ABRT to 0.
-        if (abort)
-            break;
     }
-
-    int rval;
-
-    // A lot of things could have just happened due to the ingenious and
-    // creative design of I2C. Try to figure things out.
-    if (abort) {
-        if (timeout)
-            rval = PICO_ERROR_TIMEOUT;
-        else if (!abort_reason || abort_reason & I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS) {
-            // No reported errors - seems to happen if there is nothing connected to the bus.
-            // Address byte not acknowledged
-            rval = PICO_ERROR_GENERIC;
-        } else if (abort_reason & I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS) {
-            // Address acknowledged, some data not acknowledged
-            rval = byte_ctr;
-        } else {
-            //panic("Unknown abort from I2C instance @%08x: %08x\n", (uint32_t) i2c->hw, abort_reason);
-            rval = PICO_ERROR_GENERIC;
-        }
-    } else {
-        rval = byte_ctr;
+    if (is_error_state()) {
+        return -3;
     }
+    uint8_t mux = mux_map == NULL ? 0:mux_map[xfer.display_num];
 
-    // nostop means we are now at the end of a *message* but not the end of a *transfer*
-    i2c->restart_on_next = nostop;
-    return rval;
+    if (mux_map != 0 && current_mux_map != mux) {
+        bool success = (::i2c_write_blocking(i2c_port, mux_addr, &mux, 1, false) == 1);
+        if (success) {
+            current_mux_map = mux;
+        }
+    }
+    write_non_blocking(addr, regbyte, src, len, nullptr, nullptr);
+    while(is_busy()) {
+
+    }
+    int nbytes = xfer.bytes_xferd;
+    if (is_error_state()) {
+        uint32_t flevel = i2c_port->hw->txflr;
+        nbytes = xfer.bytes_xferd - flevel - 1; // The -1 is because the error occurred when one byte was already removed from the FIFO
+    }
+    return nbytes; // 1 for the command byte + nbytes if no error; -1 means even the address write failed.
 }
 
-bool rppicomidi::Ssd1306i2c::write_non_blocking(uint8_t addr, uint8_t regbyte_, const uint8_t *src_, int len_, 
-            void (*done_callback_)(void* instance, int result), void* instance_)
+bool rppicomidi::Ssd1306i2c::write_non_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, int len, 
+            void (*done_callback)(void* instance, int result), void* instance)
 {
-    if (task_state != IDLE && task_state != ERROR) {
-        // can't interrupt an ongoing transaction
+    if (is_busy()) {
+        // can't interrupt an ongoinxfer.stateion
         if (done_callback)
-            (*done_callback)(cb_instance, 0);
+            (*done_callback)(instance, -2);
         return false;
     }
+    // TODO: I broke the I2C MUX for non-blocking writes
     invalid_params_if(I2C, addr >= 0x80); // 7-bit addresses
     invalid_params_if(I2C, i2c_reserved_addr(addr));
-    assert(len_ > 0 && src_ != nullptr);
-    regbyte = regbyte_;
-    srcbytes = src_;
-    src_len = len_;
-    src_bytes_sent = 0;
-    done_callback = done_callback_;
-    cb_instance = instance_;
+    assert(len == 0 || (len > 0 && src != nullptr));
+    assert(xfer.state == Xfer::IDLE);
+    xfer.addr = addr; // the LSB is 0 for write
+    xfer.regbyte = regbyte;
+    xfer.bytes_xferd = 0;
+    xfer.buffer = src;
+    xfer.nbytes = len;
+    xfer.done_callback = done_callback;
+    xfer.cb_instance = instance;
 
-    /* start the tranaction */
-    i2c_port->hw->enable = 0;
-    i2c_port->hw->tar = addr;
-    i2c_port->hw->enable = 1;
-    i2c_port->hw->data_cmd = bool_to_bit(i2c_port->restart_on_next) << I2C_IC_DATA_CMD_RESTART_LSB |
-        regbyte;
-    task_state = SRCBYTE;
-    src_bytes_sent = 0;
+    /* start the tranaction by enabling the TX-related interrupts; should fire the interrupt right away*/
+    i2c_port->hw->intr_mask |= (I2C_IC_INTR_STAT_R_TX_ABRT_BITS |I2C_IC_INTR_MASK_M_TX_EMPTY_BITS);
     return true;
 }
 
@@ -285,68 +184,87 @@ bool rppicomidi::Ssd1306i2c::is_tx_empty()
 
 bool rppicomidi::Ssd1306i2c::is_i2c_error()
 {
-    bool is_error = false;
-    if (i2c_port->hw->tx_abrt_source) {
-        i2c_port->hw->clr_tx_abrt;
-        task_state = ERROR;
-        is_error = true;
-    }
-    return is_error;
-}
-
-bool rppicomidi::Ssd1306i2c::send_byte_from_task(uint16_t data, bool is_last)
-{
-    bool byte_sent = false;
-    if (is_tx_empty()) {
-        if (!is_i2c_error()) {
-            i2c_port->hw->data_cmd =
-                    bool_to_bit(is_last) << I2C_IC_DATA_CMD_STOP_LSB | data;
-            byte_sent = true;
-        }
-    }
-    return byte_sent;
+    return xfer.state == Xfer::ERROR;
 }
 
 bool rppicomidi::Ssd1306i2c::task()
 {
-    bool success = true;
-    switch(task_state) {
-        case IDLE:
-            // Nothing to do
-            break;
-        case SRCBYTE:
-        {
-            uint16_t last = ((src_bytes_sent+1) == src_len);
-            if (send_byte_from_task(*srcbytes, last)) {
-                ++src_bytes_sent;
-                ++srcbytes;
-                if (last) {
-                    task_state = WAIT_LAST;
-                }
-            }
+    if (is_error_state()) {
+        return false;
+    }
+    return true;
+}
 
+void rppicomidi::Ssd1306i2c::i2c_irq_handler()
+{
+    volatile uint32_t stat = i2c_port->hw->intr_stat;
+#if 0
+    // for some reason, this interrupt routine can trigger when the status is TX FIFO Empty and the TX FIFO Level is still 1
+    // Weird timing issue?
+    volatile uint32_t reg = i2c_port->hw->txflr;
+    if (stat == I2C_IC_INTR_STAT_R_TX_EMPTY_BITS && reg != 0) {
+        printf("stat=0x%08lx reg=0x%08lx\r\n", stat, reg);
+        assert(reg == 0);
+    }
+#endif
+    if (stat &  I2C_IC_INTR_STAT_R_TX_ABRT_BITS) {
+        // Error
+        io_ro_32 dummy = i2c_port->hw->clr_tx_abrt;
+        (void)dummy;
+        i2c_port->hw->intr_mask &= ~I2C_IC_INTR_MASK_M_TX_EMPTY_BITS;
+        // Clear the stop detected IRQ if currently active // TODO is this necessary?
+        if ((i2c_port->hw->intr_stat & I2C_IC_INTR_STAT_R_STOP_DET_BITS) == 0) {
+            io_ro_32 dummy = i2c_port->hw->clr_stop_det;
+            (void)dummy;
         }
-            break;
-        case WAIT_LAST:
-            if (is_tx_empty()) {
-                if (is_i2c_error()) {
-                    success = false;
+        xfer.state = Xfer::ERROR;
+        return;
+    }
+    static io_ro_32 mask = (I2C_IC_INTR_STAT_R_TX_EMPTY_BITS);
+    if ((stat & mask) != 0) {
+        switch (xfer.state) {
+            case Xfer::IDLE:
+                // start a new transfer
+                i2c_port->hw->enable = 0;
+                i2c_port->hw->tar = xfer.addr;
+                i2c_port->hw->enable = 1;
+                i2c_port->hw->data_cmd = (1 << I2C_IC_DATA_CMD_RESTART_LSB) | xfer.regbyte;
+                xfer.bytes_xferd++;
+                // Fill the TX FIFO with as many data bytes as possible until data is exhausted or TX FIFO is full
+                while(xfer.bytes_xferd <= xfer.nbytes && i2c_port->hw->txflr < 16)  {
+                    uint32_t final = xfer.nbytes == xfer.bytes_xferd;
+                    i2c_port->hw->data_cmd = (final << I2C_IC_DATA_CMD_STOP_LSB) | *xfer.buffer++;
+                    xfer.bytes_xferd++;
+                }
+                xfer.state = Xfer::DATA;
+                break;
+            case Xfer::DATA:
+                // TX FIFO is empty; check if any more data to send
+                if (xfer.bytes_xferd > xfer.nbytes) {
+                     // Disable the TX_EMPTY IRQ if currently active
+                    if ((stat & I2C_IC_INTR_STAT_R_TX_EMPTY_BITS) != 0) {
+                        i2c_port->hw->intr_mask &= ~I2C_IC_INTR_MASK_M_TX_EMPTY_BITS;
+                    }
+                    // Clear the stop detected IRQ if currently active // TODO is this necessary?
+                    if ((stat & I2C_IC_INTR_STAT_R_STOP_DET_BITS) == 0) {
+                        io_ro_32 dummy = i2c_port->hw->clr_stop_det;
+                        (void)dummy;
+                    }
+                    xfer.state = Xfer::IDLE;
+                    if (xfer.done_callback)
+                        (*xfer.done_callback)(xfer.cb_instance, xfer.bytes_xferd);
                 }
                 else {
-                    task_state = IDLE;
+                    while(xfer.bytes_xferd <= xfer.nbytes && i2c_port->hw->txflr < 16)  {
+                        uint32_t final = xfer.nbytes == xfer.bytes_xferd;
+                        i2c_port->hw->data_cmd = (final << I2C_IC_DATA_CMD_STOP_LSB) | *xfer.buffer++;
+                        xfer.bytes_xferd++;
+                    }
                 }
-                if (done_callback)
-                    (*done_callback)(cb_instance, src_bytes_sent+1);
-            }
-            break;
-        case ERROR:
-            if (done_callback)
-                (*done_callback)(cb_instance, src_bytes_sent+1);
-            success = false;
-            break;
-        default:
-            success = false;
-            break;
+                break;
+            default:
+                assert(false);
+                break;
+        }
     }
-    return success;
 }

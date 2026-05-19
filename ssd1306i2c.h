@@ -111,8 +111,8 @@ public:
 
     bool task() final;
 
-    inline bool is_error_state() final {return task_state == ERROR;}
-    inline bool is_busy() final { return task_state != IDLE && task_state != ERROR; }
+    inline bool is_error_state() final {return xfer.state == Xfer::ERROR;}
+    inline bool is_busy() final { return xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR; }
 private:
     Ssd1306i2c() = delete;
     Ssd1306i2c(Ssd1306i2c&) = delete;
@@ -123,7 +123,6 @@ private:
     const uint8_t* mux_map;
     uint8_t current_mux_map;
 
-    enum task_state_e {IDLE, SRCBYTE, WAIT_LAST, ERROR} task_state;
     uint8_t regbyte;
     const uint8_t* srcbytes;
     int src_len; // number of source bytes remaining to send
@@ -139,35 +138,11 @@ private:
     }
 
     /**
-     * @brief This is the same as pico-sdk i2c_write_blocking_internal except this function
-     * sends the regbyte byte before sending all of the data and the return value is len+1 on success
+     * @brief Call write_non_blocking but block until transfer completes
      * 
      * @param regbyte 8-bit register byte; either 0 for SSD1306 commands or 0x40 for display data
      */
-    int write_blocking_internal(i2c_inst_t *i2c, uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len, bool nostop,
-                                       ::check_timeout_fn timeout_check, struct ::timeout_state *ts);
-
-    /**
-     * @brief This function is the same as pico-sdk i2c_write_blocking except this function
-     * sends the regbyte byte before sending all of the data and the return value is len+1 on success
-     * 
-     * @param regbyte 8-bit register byte; either 0 for SSD1306 commands or 0x40 for display data
-     */
-    inline int write_blocking(i2c_inst_t *i2c, uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len, bool nostop) {
-        return write_blocking_internal(i2c, addr, regbyte, src, len, nostop, NULL, NULL);
-    }   
-
-    /**
-     * @brief This function is the same as pico-sdk i2c_write_blocking_until except this function
-     * sends the regbyte byte before sending all of the data and the return value is len+1 on success
-     * 
-     * @param regbyte 8-bit register byte; either 0 for SSD1306 commands or 0x40 for display data
-     */
-    inline int write_blocking_until(i2c_inst_t *i2c, uint8_t regbyte, uint8_t addr, const uint8_t *src, size_t len, bool nostop,
-                                absolute_time_t until) {
-        timeout_state_t ts;
-        return write_blocking_internal(i2c, addr, regbyte, src, len, nostop, init_single_timeout_until(&ts, until), &ts);
-    }
+    inline int write_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len);
 
     bool write_non_blocking(uint8_t addr, uint8_t regbyte_, const uint8_t *src_, int len_, 
             void (*done_callback_)(void* instance, int result), void* instance_);
@@ -176,5 +151,26 @@ private:
 
     inline bool is_tx_empty();
     bool is_i2c_error();
+    struct Xfer {
+        Xfer() : buffer{nullptr}, done_callback{nullptr}, cb_instance{nullptr}, nbytes{0}, bytes_xferd{0}, state{IDLE}, addr{0}, regbyte{0} {}
+        const uint8_t* buffer;
+        void (*done_callback)(void* instance, int result);
+        void* cb_instance;
+        uint16_t nbytes;
+        uint16_t bytes_xferd;
+        enum Xfer_state_e {IDLE, DATA, STOP, ERROR} state;
+        uint8_t addr;
+        uint8_t regbyte;    // The register byte; separate from the data buffer
+        uint8_t display_num;
+    } xfer;
+    void i2c_irq_handler();
+    static Ssd1306i2c* i2c0_irq_context;
+    static Ssd1306i2c* i2c1_irq_context;
+    static void i2c0_irq_handler(void) {
+        i2c0_irq_context->i2c_irq_handler();
+    }
+    static void i2c1_irq_handler(void) {
+        i2c1_irq_context->i2c_irq_handler();
+    }
 };
 }
