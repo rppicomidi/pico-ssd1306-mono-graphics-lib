@@ -12,7 +12,7 @@ about the same time as updating only one. This library runs without an RTOS but 
 easy to integrate with FreeRTOS.
 
 This library contains examples in the `examples` directories that show how to use the library with
-one display, 2 displays (built-in I2C), 4 displays (PIO), and TODO 9 displays (via an I/O expander).
+one display, 2 displays (TODO), 4 displays (PIO), and 9 displays (TODO, via an I/O expander).
 Some use no RTOS, and some use FreeRTOS.
 
 This code is written in C++. Some of it is licensed under a BSD 3-clause license and some under
@@ -23,3 +23,19 @@ modified for I2C transmit only and modified to signal an interrupt when the PIO 
 This version was tested using with Pico SDK version 2.2 and the
 [Raspberry Pi fork](https://github.com/raspberrypi/FreeRTOS-Kernel) of FreeRTOS
 commit 4f7299d6ea746b27a9dd19e87af568e34bd65b15.
+
+# Revision Notes:
+## 19-May-2026 commit 075000d5
+Move to simplified write-only I2C drivers that really do use IRQ for non-blocking
+transfers and that are easier to integrate with FreeRTOS.
+
+Create single display examples for built-in and PIO I2C, with and without FreeRTOS.
+
+Note Introduced regressions: use with an I2C Mux chip and multiple displays
+on the same bus is not yet tested or implemented.
+
+## 22-Aug-2024 commit eb03a84f
+Now builds with Pico SDK 2.0
+
+## 7-Apr-2023: commit 3680b174
+First stable version
