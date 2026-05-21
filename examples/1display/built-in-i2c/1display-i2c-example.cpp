@@ -28,6 +28,9 @@
 #include "ssd1306.h"
 #include "mono_graphics_lib.h"
 
+#ifndef I2C_INTERFACE
+#define I2C_INTERFACE i2c1
+#endif
 #ifndef OLED_SCL_GPIO
 #define OLED_SCL_GPIO 3
 #endif
@@ -69,14 +72,8 @@ public:
     Example();
 
     const uint8_t oled_addr=OLED_ADDR;   // the OLED I2C address as a constant
-    uint8_t addr[1];                // the OLED I2C address is stored here
-    const uint8_t mux_addr=MUX_ADDR;       // no I2C mux
-#if MUX_ADDR == 0
-    uint8_t* mux_map = nullptr;       // no I2C mux
-#else
-    uint8_t mux_map[1];
-#endif
-
+    const uint8_t mux_map = MUX_MAP;
+    Ssd1306i2cPort interface;
     // the i2c driver object
     Ssd1306i2c i2c_driver_oled;
 
@@ -93,8 +90,9 @@ public:
 
 uint16_t rppicomidi::Example::render_done_mask = 0;
 
-rppicomidi::Example::Example()  : addr{oled_addr}, mux_map{MUX_MAP},
-    i2c_driver_oled{i2c1, 400000, addr, OLED_SDA_GPIO, OLED_SCL_GPIO, sizeof(addr), mux_addr, mux_map},
+rppicomidi::Example::Example()  : 
+    interface{I2C_INTERFACE, 400000, OLED_SDA_GPIO, OLED_SCL_GPIO, MUX_ADDR},
+    i2c_driver_oled{&interface, oled_addr, mux_map},
     ssd1306{&i2c_driver_oled, 0, Ssd1306::Com_pin_cfg::ALT_DIS, 128, 64, 0, 0}, // set up the SSD1306 to drive at 128 x 64 oled
     oled_screen{&ssd1306, Display_rotation::Landscape0}                       // set up the screen for rotated landscape orientation
 {
@@ -126,7 +124,7 @@ int main()
         printf("tx abort: 0x%0lx\r\n", i2c1->hw->tx_abrt_source);
     }
     assert(success);
-    printf("display initialized. Should show characters.\r\n");
+    printf("Display initialized. OLED should show characters in 24, 16, 12 & 8 pt font.\r\n");
     for(;;)
         ;
     return 0;

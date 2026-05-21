@@ -49,25 +49,135 @@
 #include "hardware/i2c.h"
 #include "pico/timeout_helper.h"
 #include "ssd1306hw.h"
+#ifndef OS_FREERTOS
+#include "hardware/sync.h"
+#include "pico/critical_section.h"
+#define LOCK() critical_section_enter_blocking(&crit_sec)
+#define UNLOCK() critical_section_exit(&crit_sec)
+#define LOCK_FROM_ISR() critical_section_enter_blocking(&crit_sec)
+#define UNLOCK_FROM_ISR() critical_section_exit(&crit_sec)
+#else
+#include "FreeRTOS.h"
+#define LOCK() vTaskEnterCritical()
+#define UNLOCK() vTaskExitCritical()
+#define LOCK_FROM_ISR() uxSavedInterruptStatus = vTaskEnterCriticalFromISR()
+#define UNLOCK_FROM_ISR() vTaskExitCriticalFromISR(uxSavedInterruptStatus)
+#endif
+#ifndef MAX_DISPLAYS
+#define MAX_DISPLAYS 18
+#endif
 namespace rppicomidi {
+class Ssd1306i2c;
+
+/**
+ * @class Manage access to a RP2040 I2C port and manages the I2C ports of an attached TCA9548A I2C Mux, if any
+ *
+ * Each SSD1306 module can support one of 2 I2C addresses, so each I2C port can support
+ * up to 2 displays. Each TCA9548A has up to 8 ports.
+ * Total maximum displays per I2C0/I2C1 on the RP2040 is 2+(2*8)=18.
+ *
+ * An application needs to instantiate one instance of this class for each RP2040
+ * I2C port it uses for mananaging SSD1306 display modules.
+ */
+class Ssd1306i2cPort
+{
+public:
+    Ssd1306i2cPort(i2c_inst_t* i2c_port, uint32_t bps, uint8_t sda_gpio, uint8_t scl_gpio, uint8_t mux_addr=0);
+
+    ~Ssd1306i2cPort()= default;
+
+    /**
+     * @brief add a Ssd1306i2c display interface object to the list of displays
+     *
+     * @param display a pointer to the display to register
+     * @return the display number of the registered display or -1 if no room
+     */
+    inline int8_t register_display(Ssd1306i2c* display) {
+        lock();
+        if (ndisplays >= MAX_DISPLAYS) {
+            unlock();
+            return -1;
+        }
+        displays[ndisplays++] = display;
+        int8_t ret = ndisplays - 1;
+        unlock();
+        return ret;
+    }
+
+    /**
+     * @brief
+     *
+     * @return true if a mux switch is required
+     */
+    inline bool is_mux_switch_reqired(int8_t display_number) {return mux_addr != 0 && (display_number != prev_display || prev_display == -1); }
+
+    /**
+     * @brief attempt to start a transfer for the display specified by display_number
+     *
+     * As long as no transfer is in progress, this method enables interrupts that allow
+     * the transfer to begin. This function must not be called from interrupt context.
+     * If a TCA9548A I2C mux switch is required prior to the normal transfer, this function
+     * will set up a mux switch prior to enabling interrupts.
+     *
+     * You must call this function from a critical section.
+     *
+     * @param display_number the display number of the display to write to
+     */
+    bool begin_transfer(int8_t display_number);
+
+    /**
+     * @brief ends a transfer for the display specified by display_number
+     *
+     * Disable I2C interrupts and update current_display and prev_display.
+     *
+     * This function must be called from interrupt context in a critical section when the transfer
+     * is completed to let this class know to clear the transfer and disable interrupts
+     *
+     * This method does nothing if no transfer is ongoing.
+     */
+    void end_transfer();
+    bool is_busy() {return current_display != -1; }
+    inline i2c_inst_t* get_i2c() {return i2c;}
+    inline void lock() { LOCK(); }
+    inline void unlock() {UNLOCK(); }
+    inline void lock_from_isr() {LOCK_FROM_ISR(); }
+    inline void unlock_from_isr() {UNLOCK_FROM_ISR(); }
+protected:
+    i2c_inst_t* i2c;
+    int8_t current_display; // -1 if no current transfer, otherwise the display number 0-ndisplays-1
+    int8_t prev_display;    // initially -1, then the previous non-negative value of current_display
+    Ssd1306i2c* displays[MAX_DISPLAYS];   // A vector of pointers to all displays this Ssd1306i2cPort object manages
+    int8_t ndisplays;
+    uint8_t mux_addr;       // The address of up to 1 TCA9548A I2C Mux, or 0 if no mux is attached.
+    static Ssd1306i2cPort* i2c0_irq_context;
+    static Ssd1306i2cPort* i2c1_irq_context;
+    static inline void i2c0_irq_handler(void);
+    static inline void i2c1_irq_handler(void);
+#ifndef OS_FREERTOS
+    critical_section_t crit_sec;
+#else 
+    UBaseType_t uxSavedInterruptStatus;
+#endif
+};
+
+/**
+ * @class manages I2C communication for each connected display
+ *
+ * This class uses an Ssd1306i2cPort to control access
+ */
 class Ssd1306i2c : public Ssd1306hw
 {
 public:
     /**
      * @brief Construct a new i2c ssd1306 object
      * 
-     * @param i2c_port the hardware handle for the I2C port in a struct
-     * @param bps the I2C clock frequency in bits per second
+     * @param i2c_port a pointer to  I2C port in a struct
      * @param i2c_addr an array of I2C address for each display on the I2C bus.
-     * @param sda_gpio the GPIO number of the I2C SDA signal
-     * @param scl_gpio the GPIO number of the I2C SCL signal
-     * @param ndisplays the number of displays wired on the same I2C bus
-     * @param mux_addr the I2C address of the TCA9548A I2C mux chip or 0 if none is used
-     * @param mux_map* an array of 8-bit bitmaps corresponding to the TCA9548A mux output
+     * @param mux_map an array of 8-bit bitmaps corresponding to the TCA9548A mux output
      * for each I2C addr. If the entry is 0, the port is not on a mux port but is instead
      * wired directly to the I2C port.
      */
-    Ssd1306i2c(i2c_inst_t* i2c_port, uint32_t bps, const uint8_t* i2c_addr, uint8_t sda_gpio, uint8_t scl_gpio, uint8_t ndisplays=1, uint8_t mux_addr=0, const uint8_t* mux_map=NULL);
+    Ssd1306i2c(Ssd1306i2cPort* i2c_port, const uint8_t i2c_addr, const uint8_t mux_map=0);
 
     virtual ~Ssd1306i2c()=default;
     /**
@@ -109,19 +219,26 @@ public:
     bool write_data_non_blocking(const uint8_t* data, size_t nbytes, uint8_t display_num,
         void (*callback)(void* instance, int result), void* instance);
 
+    /**
+     * @brief enqueue to the I2C TX FIFO the data required to switch the TCA9548A I2C
+     * MUX to the required MUX map and set xfer.state to MUX
+     */
+    void switch_mux();
+
     bool task() final;
 
     inline bool is_error_state() final {return xfer.state == Xfer::ERROR;}
     inline bool is_busy() final { return xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR; }
-private:
+    void i2c_irq_handler();
+    inline uint8_t get_addr() { return i2c_addr; }
+    inline uint8_t get_mux_map() { return mux_map; }
+    inline int8_t get_display_num() {return xfer.display_num; }
+protected:
     Ssd1306i2c() = delete;
     Ssd1306i2c(Ssd1306i2c&) = delete;
-    i2c_inst_t* i2c_port;
-    const uint8_t* i2c_addr;
-    uint8_t ndisplays;
-    uint8_t mux_addr;
-    const uint8_t* mux_map;
-    uint8_t current_mux_map;
+    Ssd1306i2cPort* i2c_port;
+    uint8_t i2c_addr;
+    const uint8_t mux_map;
 
     uint8_t regbyte;
     const uint8_t* srcbytes;
@@ -142,7 +259,7 @@ private:
      * 
      * @param regbyte 8-bit register byte; either 0 for SSD1306 commands or 0x40 for display data
      */
-    inline int write_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len);
+    int write_blocking(uint8_t addr, uint8_t regbyte, const uint8_t *src, size_t len);
 
     bool write_non_blocking(uint8_t addr, uint8_t regbyte_, const uint8_t *src_, int len_, 
             void (*done_callback_)(void* instance, int result), void* instance_);
@@ -158,19 +275,10 @@ private:
         void* cb_instance;
         uint16_t nbytes;
         uint16_t bytes_xferd;
-        enum Xfer_state_e {IDLE, DATA, STOP, ERROR} state;
+        enum Xfer_state_e {IDLE, MUX, DATA, STOP, ERROR} state;
         uint8_t addr;
         uint8_t regbyte;    // The register byte; separate from the data buffer
-        uint8_t display_num;
+        int8_t display_num;
     } xfer;
-    void i2c_irq_handler();
-    static Ssd1306i2c* i2c0_irq_context;
-    static Ssd1306i2c* i2c1_irq_context;
-    static void i2c0_irq_handler(void) {
-        i2c0_irq_context->i2c_irq_handler();
-    }
-    static void i2c1_irq_handler(void) {
-        i2c1_irq_context->i2c_irq_handler();
-    }
 };
 }

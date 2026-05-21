@@ -25,8 +25,13 @@ target_link_options(1display-i2c-example PRIVATE -Xlinker --print-memory-usage)
 target_compile_options(1display-i2c-example PRIVATE -Wall -Wextra)
 target_link_libraries(1display-i2c-example ssd1306i2c ssd1306 mono_graphics_lib)
 target_compile_definitions(1display-i2c-example PRIVATE
+# The following 2 definitions are for my hardware, which maps the UART0 pins away from default
     PICO_DEFAULT_UART_TX_PIN=16
     PICO_DEFAULT_UART_RX_PIN=17
+# The following 3 definitions show using pins 0 and 1 for I2C0 instead of the default pins 2 and 3 for I2C1
+    I2C_INTERFACE=i2c0
+    OLED_SDA_GPIO=0
+    OLED_SCL_GPIO=1
 )
 pico_add_extra_outputs(1display-i2c-example)
 

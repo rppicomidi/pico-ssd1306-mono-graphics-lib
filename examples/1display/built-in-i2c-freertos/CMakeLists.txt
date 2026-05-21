@@ -27,6 +27,9 @@ target_include_directories(1display-i2c-freertos-example PRIVATE
 )
 
 target_compile_definitions(1display-i2c-freertos-example PRIVATE
+# OS_FREERTOS must be defined or else the critical section macros will not be defined properly
+    OS_FREERTOS=1
+# The following 2 definitions are for my hardware, which maps the UART0 pins away from default
     PICO_DEFAULT_UART_TX_PIN=16
     PICO_DEFAULT_UART_RX_PIN=17
     )
