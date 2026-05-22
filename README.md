@@ -25,6 +25,10 @@ This version was tested using with Pico SDK version 2.2 and the
 commit 4f7299d6ea746b27a9dd19e87af568e34bd65b15.
 
 # Revision Notes:
+## 20-May-2026
+Implement support for multiple displays on a single bus. Add locking where mulit-core or thread safety might be an issue.
+Not tested for multiple displays on a single bus yet. All single display examples work. 
+
 ## 19-May-2026 commit 075000d5
 Move to simplified write-only I2C drivers that really do use IRQ for non-blocking
 transfers and that are easier to integrate with FreeRTOS.
@@ -32,7 +36,7 @@ transfers and that are easier to integrate with FreeRTOS.
 Create single display examples for built-in and PIO I2C, with and without FreeRTOS.
 
 Note Introduced regressions: use with an I2C Mux chip and multiple displays
-on the same bus is not yet tested or implemented.
+on the same bus is not yet implemented correctly.
 
 ## 22-Aug-2024 commit eb03a84f
 Now builds with Pico SDK 2.0
