@@ -12,7 +12,7 @@ about the same time as updating only one. This library runs without an RTOS but 
 easy to integrate with FreeRTOS.
 
 This library contains examples in the `examples` directories that show how to use the library with
-one display, 2 displays (TODO), 4 displays (PIO), and 9 displays (TODO, via an I/O expander).
+one display, 2 displays (TODO), 4 displays (PIO, one state machine per display), and 9 displays (TODO, via an I/O expander).
 Some use no RTOS, and some use FreeRTOS.
 
 This code is written in C++. Some of it is licensed under a BSD 3-clause license and some under
