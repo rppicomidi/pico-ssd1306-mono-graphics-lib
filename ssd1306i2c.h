@@ -143,6 +143,8 @@ public:
     inline void lock_from_isr() {LOCK_FROM_ISR(); }
     inline void unlock_from_isr() {UNLOCK_FROM_ISR(); }
 protected:
+    Ssd1306i2cPort() = delete;
+    Ssd1306i2cPort(Ssd1306i2cPort&) = delete;
     i2c_inst_t* i2c;
     int8_t current_display; // -1 if no current transfer, otherwise the display number 0-ndisplays-1
     int8_t prev_display;    // initially -1, then the previous non-negative value of current_display
@@ -218,12 +220,6 @@ public:
 
     bool write_data_non_blocking(const uint8_t* data, size_t nbytes, uint8_t display_num,
         void (*callback)(void* instance, int result), void* instance);
-
-    /**
-     * @brief enqueue to the I2C TX FIFO the data required to switch the TCA9548A I2C
-     * MUX to the required MUX map and set xfer.state to MUX
-     */
-    void switch_mux();
 
     bool task() final;
 
