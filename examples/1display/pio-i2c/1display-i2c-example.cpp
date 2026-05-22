@@ -28,6 +28,12 @@
 #include "ssd1306.h"
 #include "mono_graphics_lib.h"
 
+#ifndef OLED_PIO
+#define OLED_PIO pio0
+#endif
+#ifndef OLED_SM
+#define OLED_SM 0
+#endif
 #ifndef OLED_SCL_GPIO
 #define OLED_SCL_GPIO 3
 #endif
@@ -69,14 +75,11 @@ public:
     Example();
 
     const uint8_t oled_addr=OLED_ADDR;   // the OLED I2C address as a constant
-    uint8_t addr[1];                     // the OLED I2C address is stored here
     const uint8_t mux_addr=MUX_ADDR;     // no I2C mux
-#if MUX_ADDR == 0
-    uint8_t* mux_map=nullptr;            // no I2C mux
-#else
-    uint8_t mux_map[1] = MUX_MAP;
-#endif
+    uint8_t mux_map = MUX_MAP;
     // the i2c driver object
+    Ssd1306pio_i2c_pio_manager manager;
+    Ssd1306pio_i2c_port port;
     Ssd1306pio_i2c i2c_driver_oled;
 
     Ssd1306 ssd1306;    // the SSD1306 driver object
@@ -92,8 +95,9 @@ public:
 
 uint16_t rppicomidi::Example::render_done_mask = 0;
 
-rppicomidi::Example::Example()  : addr{oled_addr},
-    i2c_driver_oled{pio0, 0, 400000, addr, OLED_SDA_GPIO, OLED_SCL_GPIO, sizeof(addr), mux_addr, mux_map},
+rppicomidi::Example::Example()  : manager{OLED_PIO, OLED_SM},
+    port{&manager, 0, OLED_SDA_GPIO, OLED_SCL_GPIO, mux_addr},
+    i2c_driver_oled{&port, oled_addr, mux_map},
     ssd1306{&i2c_driver_oled, 0, Ssd1306::Com_pin_cfg::ALT_DIS, 128, 64, 0, 0}, // set up the SSD1306 to drive at 128 x 64 oled
     oled_screen{&ssd1306, Display_rotation::Landscape0}                       // set up the screen for rotated landscape orientation
 {

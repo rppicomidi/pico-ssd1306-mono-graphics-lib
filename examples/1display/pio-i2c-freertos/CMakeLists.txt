@@ -25,6 +25,7 @@ target_include_directories(1display-i2c-example PRIVATE
 )
 
 target_compile_definitions(1display-i2c-example PRIVATE
+    OS_FREERTOS=1
     PICO_DEFAULT_UART_TX_PIN=16
     PICO_DEFAULT_UART_RX_PIN=17
     OLED_SDA_GPIO=0
