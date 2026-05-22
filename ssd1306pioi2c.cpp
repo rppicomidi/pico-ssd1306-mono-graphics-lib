@@ -64,7 +64,7 @@ void rppicomidi::Ssd1306pio_i2c_pio_manager::pio_i2c_irq_handler()
     uint32_t mask = 1 << PIO_IRQ0_INTE_SM0_LSB;
     // process the interrupt for each state machine that is triggering it
     for (int sm = 0; sm < 4; sm++, mask <<= 1) {
-        if (ports[sm]) {
+        if (ports[sm] != nullptr && ports[sm]->is_busy()) {
             // The state machine sm is running PIO I2C code
             if (pio_instance->ints0 & mask) {
                 ports[sm]->irq_handler();

@@ -267,7 +267,7 @@ public:
      *
      * @return true if there is a data or display command transfer in progress
      */
-    inline bool is_busy() final { return xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR; }
+    inline bool is_busy() final { return i2c_port->is_busy() || (xfer.state != Xfer::IDLE && xfer.state != Xfer::ERROR); }
 
     /**
      * @brief Attempt to recover from an error
