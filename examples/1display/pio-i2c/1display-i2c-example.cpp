@@ -95,8 +95,8 @@ public:
 
 uint16_t rppicomidi::Example::render_done_mask = 0;
 
-rppicomidi::Example::Example()  : manager{OLED_PIO, OLED_SM},
-    port{&manager, 0, OLED_SDA_GPIO, OLED_SCL_GPIO, mux_addr},
+rppicomidi::Example::Example()  : manager{OLED_PIO, 0},
+    port{&manager, OLED_SM, OLED_SDA_GPIO, OLED_SCL_GPIO, mux_addr},
     i2c_driver_oled{&port, oled_addr, mux_map},
     ssd1306{&i2c_driver_oled, 0, Ssd1306::Com_pin_cfg::ALT_DIS, 128, 64, 0, 0}, // set up the SSD1306 to drive at 128 x 64 oled
     oled_screen{&ssd1306, Display_rotation::Landscape0}                       // set up the screen for rotated landscape orientation
