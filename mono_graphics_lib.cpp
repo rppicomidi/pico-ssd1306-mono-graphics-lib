@@ -98,6 +98,9 @@ void rppicomidi::Mono_graphics::draw_line(uint8_t x0, uint8_t y0, uint8_t x1, ui
 
 void rppicomidi::Mono_graphics::draw_rectangle(uint8_t x0, uint8_t y0, uint8_t width, uint8_t height, Pixel_state fg_color, Pixel_state bg_color)
 {
+    if (width == 0 || height == 0) {
+        return;
+    }
     update_needs_render(x0, y0, x0+width-1, y0+height-1);
     uint8_t x1 = x0 + width - 1;
     uint8_t y1 = y0 + height - 1;
@@ -105,7 +108,10 @@ void rppicomidi::Mono_graphics::draw_rectangle(uint8_t x0, uint8_t y0, uint8_t w
     draw_line(x0,y1, x1, y1, fg_color); // bottom of the rectangle
     draw_line(x0,y0, x0, y1, fg_color); // left edge
     draw_line(x1,y0, x1, y1, fg_color); // right edge
-    if (bg_color != Pixel_state::PIXEL_TRANSPARENT) {
+
+    // Do not fill transparent rectangles. Aslo, there is nothing to fill
+    // if either opposite rectangle edge pairs touch
+    if (bg_color != Pixel_state::PIXEL_TRANSPARENT && width > 2 && height > 2) {
 	    // fill the rectangle using horizontal lines
 	    ++x0;
 	    --x1;
