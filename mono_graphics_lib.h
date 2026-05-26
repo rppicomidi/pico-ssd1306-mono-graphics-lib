@@ -257,6 +257,20 @@ public:
     }
 
     /**
+     * @brief erase a string drawn by center_string()
+     *
+     * @param font the font to render the string
+     * @param str the NULL terminated C string to draw
+     * @param y vertical position for current screen rotation of upper left pixel of the character
+     */
+    void clear_centered_string(const Mono_mono_font& font, const char* str, uint8_t y)
+    {
+        auto text_len = strlen(str);
+        int x = get_screen_width()/2 - (text_len*font.width)/2;
+        draw_rectangle(x, y, font.width * text_len, font.height, Pixel_state::PIXEL_ZERO, Pixel_state::PIXEL_ZERO);
+    }
+
+    /**
      * @brief center str on the screen linenum+1 if str fits in one line. Otherwise,
      * break str into two lines and render the first line on linenum and the second
      * line on linenum+1
