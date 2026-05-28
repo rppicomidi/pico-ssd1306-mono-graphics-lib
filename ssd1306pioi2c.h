@@ -62,9 +62,6 @@ public:
     Ssd1306pio_i2c_pio_manager(pio_hw_t* pio_instance_, uint offset_);
     ~Ssd1306pio_i2c_pio_manager()=default;
     pio_hw_t* assign_sm_to_i2c(uint sm, Ssd1306pio_i2c_port* i2c_port, uint sda_gpio, uint scl_gpio);
-    //inline void set_irq_enable(uint sm) { hw_set_bits(&pio_instance->inte0, 1<<(sm+PIO_IRQ0_INTE_SM0_LSB)); }
-    //inline void clr_irq_enable(uint sm) { hw_clear_bits(&pio_instance->inte0, 1<<(sm+PIO_IRQ0_INTE_SM0_LSB)); }
-    //void clear_irq(uint sm) { pio_instance->irq = 1 << sm; }
 protected:
     pio_hw_t* pio_instance;
     uint offset;
