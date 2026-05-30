@@ -234,11 +234,11 @@ public:
      * @return true if successful, false otherwise
      */
     void draw_string(const Mono_mono_font& font, uint8_t x, uint8_t y, const char* str, size_t len,
-            Pixel_state fg_color=Pixel_state::PIXEL_ONE, Pixel_state bg_color=Pixel_state::PIXEL_ZERO) {
+            Pixel_state fg_color=Pixel_state::PIXEL_ONE, Pixel_state bg_color=Pixel_state::PIXEL_ZERO, uint8_t extra = 0) {
         assert(strlen(str) <= len);
         while (len--) {
             draw_character(font, x, y, *str++, fg_color, bg_color);
-            x+=font.width;
+            x+=font.width + extra; // in case navtive font kerning is bad
         }
     }
 
