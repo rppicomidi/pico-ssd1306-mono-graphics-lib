@@ -42,8 +42,20 @@
 #define UNLOCK_FROM_ISR() critical_section_exit(&crit_sec)
 #else
 #include "FreeRTOS.h"
-#define LOCK() vTaskEnterCritical()
-#define UNLOCK() vTaskExitCritical()
+#include "pico/platform.h"
+#define LOCK() do { \
+    if (__get_current_exception()) \
+        uxSavedInterruptStatus = vTaskEnterCriticalFromISR(); \
+    else \
+        vTaskEnterCritical(); \
+} while(0)
+
+#define UNLOCK() do { \
+    if (__get_current_exception()) \
+        vTaskExitCriticalFromISR(uxSavedInterruptStatus); \
+    else \
+        vTaskExitCritical(); \
+} while(0)
 #define LOCK_FROM_ISR() uxSavedInterruptStatus = vTaskEnterCriticalFromISR()
 #define UNLOCK_FROM_ISR() vTaskExitCriticalFromISR(uxSavedInterruptStatus)
 #endif
