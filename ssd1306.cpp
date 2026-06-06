@@ -307,18 +307,26 @@ void rppicomidi::Ssd1306::set_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_
         // then bytes go left to right LSB to MSB in rows of num_pages bytes
         assert(x < landscape_height);
         assert(y < landscape_width);
+        if (x >= landscape_height || y >= landscape_width)
+            return;
         int page = x/8;
         idx = (page*landscape_width) + y;
         assert(idx < nbytes_in_canvas);
+        if (idx >= nbytes_in_canvas)
+            return;
         bit = x % 8;
     }
     else {
         // then bytes go top to bottom LSB to MSB in columns of num_pages bytes
         assert(y < landscape_height);
         assert(x < landscape_width);
+        if (y >= landscape_height || x >= landscape_width)
+            return;
         int page = y/8;
         idx = (page*landscape_width) + x;
         assert(idx < nbytes_in_canvas);
+        if (idx >= nbytes_in_canvas)
+            return;
         bit = (y % 8);
     }
     uint8_t mask = 1 << bit;
@@ -352,18 +360,30 @@ bool rppicomidi::Ssd1306::get_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_
         // then bytes go left to right LSB to MSB in rows of num_pages bytes
         assert(x < landscape_height);
         assert(y < landscape_width);
+        if (x >= landscape_height || y >= landscape_width)
+            return false;
+
         int page = x/8;
         idx = (page*landscape_width) + y;
         assert(idx < nbytes_in_canvas);
+        if (idx >= nbytes_in_canvas)
+            return false;
+
         bit = x % 8;
     }
     else {
         // then bytes go top to bottom LSB to MSB in columns of num_pages bytes
         assert(y < landscape_height);
         assert(x < landscape_width);
+        if (y >= landscape_height || x >= landscape_width)
+            return false;
+
         int page = y/8;
         idx = (page*landscape_width) + x;
         assert(idx < nbytes_in_canvas);
+        if (idx >= nbytes_in_canvas)
+            return false;
+
         bit = (y % 8);
     }
     uint8_t mask = 1 << bit;

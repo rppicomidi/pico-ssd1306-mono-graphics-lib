@@ -165,8 +165,8 @@ protected:
     Ssd1306pio_i2c_pio_manager* pio_manager;
     uint sm;
     uint8_t mux_addr;       // The address of up to 1 TCA9548A I2C Mux, or 0 if no mux is attached.
-    int8_t current_display; // -1 if no current transfer, otherwise the display number 0-ndisplays-1
-    int8_t prev_display;    // initially -1, then the previous non-negative value of current_display
+    volatile int8_t current_display; // -1 if no current transfer, otherwise the display number 0-ndisplays-1
+    volatile int8_t prev_display;    // initially -1, then the previous non-negative value of current_display
     Ssd1306pio_i2c* displays[MAX_DISPLAYS];   // A vector of pointers to all displays this Ssd1306i2cPort object manages
     int8_t ndisplays;
     pio_hw_t* pio_instance;
@@ -323,7 +323,7 @@ protected:
         void* cb_instance;
         uint16_t nbytes;
         uint16_t bytes_xferd;
-        enum Xfer_state_e {IDLE, MUX, DATA, STOP, ERROR} state;
+        volatile enum Xfer_state_e {IDLE, MUX, DATA, STOP, ERROR} state;
         uint8_t addr;
         uint8_t regbyte;    // The register byte; separate from the data buffer
         int8_t display_num;

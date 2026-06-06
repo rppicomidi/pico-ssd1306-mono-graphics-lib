@@ -184,17 +184,43 @@ public:
     bool set_display_rotation(rppicomidi::Display_rotation rotation_=rppicomidi::Display_rotation::Landscape0);
 
     /**
-     * @brief Set the pixel at location x, y, on the memory buffer
-     * canvas[0:nbytes_in_canvas-1] as specified by the Pixel_state.
-     * 
+     * @brief Set the pixel at location x, y, in the memory buffer
+     * canvas[0:nbytes_in_canvas-1] as specified by the value Pixel_state.
+     *
      * This function uses the screen dimensions and the current screen rotation
-     * to correctly. The reason this function is in this class is the canvas
-     * memory organization is a property of the display chip and not a higher
-     * level graphics driver.
+     * to compute what bit to set. The reason this function is in this class is
+     * the canvas memory organization is a property of the display chip and not
+     * a higher level graphics driver.
+     * @param canvas a pointer to the canvas byte array
+     * @param nbytes_in_canvas is the number of bytes in the canvas byte array
+     * @param x the horizontal pixel coordinate
+     * @param y the vertical pixel coordiante
+     * @param value the state of the pixel (one, zero, xor or transparent)
+     * @note in debug builds, if the pixel coordinates requested won't fit in the
+     * canvas, this function will assert. In release builds, this function does nothing
+     * @note this function does nothing if value is Pixel_state::PIXEL_TRANSPARENT
      */
     void set_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_canvas, uint8_t x, uint8_t y, Pixel_state value);
 
+    /**
+     * @brief Get the pixel at location x, y, in the memory buffer
+     * canvas[0:nbytes_in_canvas-1]
+     *
+     * This function uses the screen dimensions and the current screen rotation
+     * to compute what bit to get. The reason this function is in this class is
+     * the canvas memory organization is a property of the display chip and not
+     * a higher level graphics driver.
+     * @param canvas a pointer to the canvas byte array
+     * @param nbytes_in_canvas is the number of bytes in the canvas byte array
+     * @param x the horizontal pixel coordinate
+     * @param y the vertical pixel coordiante
+     * @return true if the pixel is set, false if the pixel is not set or does
+     * not fit on the canvas.
+     * @note in debug builds, if the pixel coordinates requested won't fit in the
+     * canvas, this function will assert. In release builds, this function just returns false
+     */
     bool get_pixel_on_canvas(uint8_t* canvas, size_t nbytes_in_canvas, uint8_t x, uint8_t y);
+
     /**
      * @brief Get the display rotation object value
      * 
@@ -301,7 +327,7 @@ protected: // protected and not private because you may want to base SH1106 on t
     uint8_t contrast;
     Display_rotation rotation;
     bool is_portrait;
-    enum task_state_e {IDLE, CMD_LIST, DATA, ERROR} task_state;
+    volatile enum task_state_e {IDLE, CMD_LIST, DATA, ERROR} task_state;
     uint8_t cmd_list[64];
     uint8_t cmd_list_len;
     uint8_t cmd_list_idx;

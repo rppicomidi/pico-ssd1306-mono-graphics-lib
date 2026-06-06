@@ -25,6 +25,7 @@ rppicomidi::Ssd1306pio_i2c_pio_manager::Ssd1306pio_i2c_pio_manager(pio_hw_t* pio
 {
     uint ret = pio_add_program_at_offset(pio_instance, &i2c_irq_program, offset);
     assert(ret == offset);
+    (void)ret; // suppress compiler warning
     memset(ports, 0, sizeof(ports));
     if (pio_instance == pio0) {
         assert(pio0_manager == nullptr);
