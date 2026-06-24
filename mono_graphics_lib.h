@@ -227,7 +227,7 @@ public:
      * @param font the font object to use when drawing the character
      * @param x horizontal position for current screen rotation of upper left pixel of the character
      * @param y vertical position for current screen rotation of upper left pixel of the character
-     * @param str the NULL terminated C string to draw
+     * @param str the NULL terminated C string to draw; it must have at least len characters
      * @param len the number of characters to draw; must be <= strlen(str)
      * @param fg_color how to render the "1" pixels of the font bitmap
      * @param bg_color how to render the "0" pixels of the font bitmap
@@ -235,7 +235,7 @@ public:
      */
     void draw_string(const Mono_mono_font& font, uint8_t x, uint8_t y, const char* str, size_t len,
             Pixel_state fg_color=Pixel_state::PIXEL_ONE, Pixel_state bg_color=Pixel_state::PIXEL_ZERO, uint8_t extra = 0) {
-        assert(strlen(str) <= len);
+        assert(len <= strlen(str));
         while (len--) {
             draw_character(font, x, y, *str++, fg_color, bg_color);
             x+=font.width + extra; // in case navtive font kerning is bad
